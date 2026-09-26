@@ -1,79 +1,182 @@
-# VietIME — HarmonyOS NEXT / PC
+<div align="center">
 
-**Phiên bản 1.0.0**: bộ gõ tiếng Việt Telex cho HarmonyOS PC (native ArkTS/ArkUI), đã chạy trên MateBook Pro S. Giao diện cài đặt tiếng Việt, ô báo chế độ nổi Ví / EN, nhận diện từ tiếng Anh, gõ trực tiếp cho ứng dụng Android (EasyAbroad).
+<img src="AppScope/resources/base/media/app_icon.png" alt="VietIME logo" width="128" height="128">
 
-Tác giả: **Lại Thành Luân** · v.luanlt@gmail.com · 0961722886
+# VietIME
 
-**Phát hành:** bắt đầu từ [docs/HUONG-DAN-PHAT-HANH.md](docs/HUONG-DAN-PHAT-HANH.md) (các bước từ đầu), chi tiết kỹ thuật trong [docs/RELEASE.md](docs/RELEASE.md) (AppGallery và cài thử theo máy) và hồ sơ trong [docs/appgallery/](docs/appgallery/): chính sách quyền riêng tư, nội dung trang ứng dụng, ghi chú cho người duyệt, email gửi Huawei.
+**Bộ gõ tiếng Việt Telex cho HarmonyOS PC — gõ nhanh như UniKey, chạy hoàn toàn ngoại tuyến.**
 
-## Đã kiểm chứng trên máy phát triển
+[![Version](https://img.shields.io/badge/version-1.0.4-2563eb)](AppScope/app.json5)
+[![HarmonyOS](https://img.shields.io/badge/HarmonyOS-6.1.0%2B%20(API%2023)-cf0a2c)](build-profile.json5)
+[![ArkTS](https://img.shields.io/badge/ArkTS-ArkUI-7c3aed)](entry/src/main/ets)
+[![Tests](https://img.shields.io/badge/tests-396%20passed-16a34a)](docs/test-results.json)
+[![Permissions](https://img.shields.io/badge/permissions-none-0f766e)](PRIVACY.md)
 
-- DevEco Studio **6.1.1.280**, HarmonyOS SDK **6.1.1.125 / API 24** tại `C:\Program Files\Huawei\DevEco Studio\sdk\default`.
-- Hvigor `assembleHap`: **BUILD SUCCESSFUL**; bytecode ArkTS được đóng trong HAP.
-- **384 test qua**: 341 test engine (gồm corpus và 34 từ tiếng Anh), 43 test session/shortcut với editor giả lập (gồm chế độ gõ trực tiếp và con trỏ báo trễ).
-- Gói chứa extension `type: inputMethod`, subtype `vi-VN`, target `2in1`, không khai báo permission.
-- **Đã chạy trên MateBook Pro S (MOR-M1), HarmonyOS 6.1.0.135 / API 24** qua hdc không dây, bản ký debug: gõ được tiếng Việt trong ứng dụng native (pre-edit) và Zalo qua EasyAbroad (gõ trực tiếp). Editor của EasyAbroad báo `isTextPreviewSupported=false` và báo vị trí con trỏ trễ một thao tác; session tự tính vị trí con trỏ để chịu độ trễ này.
+[Tính năng](#-tính-năng) · [Cài đặt](#-cài-đặt--sử-dụng) · [Build](#-build-từ-mã-nguồn) · [Kiến trúc](#-kiến-trúc) · [Giới hạn](#-giới-hạn-đã-biết) · [Tài liệu](#-tài-liệu)
 
-Artifact: `entry/build/default/outputs/default/entry-default-unsigned.hap`. Gói chưa ký không phải gói sẵn sàng cài trên PC thương mại. [Kết quả kiểm tra gói](docs/hap-verification.json) có SHA-256; [kết quả test](docs/test-results.json) có số liệu benchmark Windows, không phải độ trễ HarmonyOS IPC.
+</div>
 
-## Cấu trúc
+---
+
+## Giới thiệu
+
+VietIME là bộ gõ tiếng Việt kiểu **Telex** viết native bằng ArkTS/ArkUI cho **HarmonyOS PC (2in1)**, dùng với bàn phím vật lý. Bộ gõ đăng ký với hệ thống qua `InputMethodExtensionAbility`, không cần quyền hệ thống nào, không kết nối mạng và không lưu lịch sử gõ.
+
+Phiên bản **1.0.4** đã chạy thực tế trên **Huawei MateBook Pro S (MOR-M1), HarmonyOS 6.1.0.135 / API 24**, gõ được trong ứng dụng HarmonyOS native và ứng dụng Android chạy qua EasyAbroad (Zalo, Messenger…).
 
 ```text
-AppScope/                  bundle và tài nguyên chung
-entry/src/main/ets/
-  entryability/            UIAbility mở Settings
-  pages/                   Settings, diagnostics và sandbox engine
-  settings/                Preferences, cấu hình có validation
-  ime/                     InputMethodExtensionAbility, physical keys, editor adapter
-  engine/                  Telex, parser âm tiết, interface engine
-  keyboard/                soft keyboard dùng chung engine
-  utils/                   trao đổi metadata diagnostics trong cùng bundle
-scripts/                   build, audit SDK, unit tests, kiểm tra HAP
- tests/                    fixtures, corpus, session/shortcut tests
+tieengs Vieetj  →  tiếng Việt
+dinhd           →  đinh
+nhw             →  như
+project windows →  project windows   (tự nhận diện tiếng Anh)
 ```
 
-## Build và test
+## ✨ Tính năng
 
-Mở thư mục này trong DevEco Studio, hoặc chạy PowerShell tại thư mục project:
+| | |
+|---|---|
+| ⌨️ **Telex chuẩn** | `aa/ee/oo → â/ê/ô`, `aw → ă`, `ow → ơ`, `uw/w → ư`, `dd → đ`, dấu `s f r x j`, `z` xóa dấu. |
+| ⚡ **Cảm giác UniKey** | Gõ thẳng vào ô nhập, không gạch chân; dấu được sửa tại chỗ và đặt tự do ở bất kỳ vị trí nào trong từ; `d` ở cuối từ vẫn tạo `đ` (`dinhd → đinh`). |
+| 🔤 **Nhận diện tiếng Anh** | Kiểm tra cấu trúc âm tiết ngay khi gõ (`project`, `class`, `windows`…) cùng danh sách từ giữ nguyên có thể xem, sửa, xóa trong Cài đặt. |
+| 🔁 **Chuyển Việt / Anh** | Nhấn-nhả riêng **Shift** (mặc định), **Alt+Z** hoặc **Ctrl+Space**; bấm biểu tượng Ví/EN trên khay hoặc ô báo nổi. `Esc` trả từ đang gõ về đúng phím đã bấm. |
+| 🏷️ **Chỉ báo trạng thái** | Biểu tượng Ví/EN trên khay hệ thống và ô báo nổi có thể kéo thả. |
+| 📱 **Ứng dụng Android** | Tự chuyển sang chế độ gõ trực tiếp với editor không hỗ trợ pre-edit (EasyAbroad), chịu được việc báo vị trí con trỏ trễ. |
+| 🔒 **Riêng tư** | Tự bỏ qua ô mật khẩu/PIN/OTP, URL và email; không quyền, không mạng, không telemetry. Xem [PRIVACY.md](PRIVACY.md). |
+| 🛠️ **Tùy biến** | Kiểu đặt dấu mới/cũ, gõ lặp phím dấu kiểu UniKey (`ass → as`), danh sách ứng dụng bỏ qua, bàn phím ảo tùy chọn, trang Chẩn đoán. |
+
+## 📦 Cài đặt & sử dụng
+
+> [!IMPORTANT]
+> HarmonyOS thương mại không cho cài tự do file `.hap`. VietIME đến tay người dùng qua **AppGallery**, hoặc qua **bản ký debug** cho các máy đã đăng ký UDID. Xem [docs/RELEASE.md](docs/RELEASE.md).
+
+**Yêu cầu:** thiết bị HarmonyOS PC / 2in1 chạy **HarmonyOS 6.1.0 (API 23)** trở lên, bàn phím vật lý.
+
+1. Cài VietIME (AppGallery hoặc bản ký debug qua DevEco Studio / `hdc`).
+2. Mở ứng dụng **VietIME** → **Mở cài đặt bộ gõ**.
+3. Bật và chọn **VietIME** làm bộ gõ trong cài đặt hệ thống.
+4. Gõ thử `tieengs Vieetj` trong bất kỳ ô nhập nào → phải ra `tiếng Việt`.
+
+## 🔧 Build từ mã nguồn
+
+### Môi trường đã kiểm chứng
+
+| Thành phần | Phiên bản |
+|---|---|
+| DevEco Studio | 6.1.1.280 |
+| HarmonyOS SDK (compile) | 6.1.1.125 / API 24 |
+| Target / minimum | HarmonyOS 6.1.0 / API 23 |
+| Thiết bị kiểm thử | MateBook Pro S (MOR-M1), HarmonyOS 6.1.0.135 |
+
+Mọi API đang dùng đã được đối chiếu `@since` ≤ 23 ([SDK audit](docs/SDK-AUDIT.md)); `settings.openInputMethodSettings` cần đúng API 23 nên không thể hạ thấp hơn.
+
+### Các bước
+
+Mở thư mục dự án trong DevEco Studio, hoặc chạy PowerShell tại thư mục gốc:
 
 ```powershell
+# 1. Cài dependency
 & 'C:\Program Files\Huawei\DevEco Studio\tools\ohpm\bin\ohpm.bat' install
+
+# 2. Đối chiếu API với SDK
 & .\scripts\audit-sdk.ps1
+
+# 3. Chạy unit test (dùng TypeScript compiler đi kèm SDK)
 & 'C:\Program Files\Huawei\DevEco Studio\tools\node\node.exe' .\scripts\test.cjs
-& .\scripts\build.ps1 -Mode release   # bản tối ưu để dùng; bỏ -Mode để build debug có log chẩn đoán
+
+# 4. Build (bỏ -Mode release để build debug có log chẩn đoán)
+& .\scripts\build.ps1 -Mode release
+
+# 5. Kiểm tra gói HAP (SHA-256, manifest, quyền)
 & .\scripts\verify-hap.ps1
 ```
 
-Build script đặt PATH/JAVA_HOME/SDK chỉ trong process hiện tại. Nếu IDE nằm ở chỗ khác, truyền `-Studio` cho script PowerShell và đặt `VIETIME_STUDIO` khi chạy unit test. Test dùng TypeScript compiler đi kèm SDK. Không có dependency runtime bên ngoài.
+Script chỉ đặt `PATH` / `JAVA_HOME` / SDK trong process hiện tại. Nếu DevEco Studio cài ở vị trí khác, truyền `-Studio <đường dẫn>` cho các script PowerShell và đặt biến môi trường `VIETIME_STUDIO` khi chạy test. Dự án không có dependency runtime bên ngoài.
 
-Compile SDK **6.1.1 (API 24)**; target/minimum **HarmonyOS 6.1.0 / API 23** (MateBook Pro S chạy HarmonyOS PC 6.1.0). Mọi API đang dùng đã được đối chiếu `@since` ≤ 23; `settings.openInputMethodSettings` cần đúng API 23, không hạ thấp hơn nữa.
+Kết quả build nằm tại `entry/build/default/outputs/default/`. Thông tin gói phát hành gần nhất: [docs/hap-verification.json](docs/hap-verification.json).
 
-## Ký và cài thử
+### Ký và cài thử trên thiết bị
 
-1. Kết nối thiết bị HarmonyOS phù hợp, bật chế độ phát triển và cho phép kết nối debug. Kiểm tra bằng `hdc list targets`.
-2. Trong DevEco: **File > Project Structure > Project > Signing Configs**, cấu hình chữ ký HarmonyOS cho bundle `com.vietime.inputmethod`. Làm theo [hướng dẫn ký chính thức Huawei](https://developer.huawei.com/consumer/cn/doc/HarmonyOS-Guides/ide-signing-auto), đăng nhập tài khoản và liên kết thiết bị khi IDE yêu cầu.
-3. Build lại; kiểm tra đã có HAP signed và hết cảnh báo thiếu signingConfig. Dùng Run trong IDE để cài; không đổi tên unsigned thành signed.
-4. Mở VietIME, chọn **Mở Input Method Settings**, enable/select VietIME bằng hệ thống.
-5. Để `Show virtual keyboard = OFF`, thử `tieengs Vieetj` trong TextArea tại Diagnostics và ứng dụng đích. Phải được `tiếng Việt` mà không hiện panel.
-6. Chạy checklist trong [COMPATIBILITY.md](docs/COMPATIBILITY.md); ghi OS/app version và kết quả thật.
+1. Bật chế độ nhà phát triển trên thiết bị, cho phép debug và kiểm tra bằng `hdc list targets`.
+2. DevEco Studio → **File › Project Structure › Project › Signing Configs**, cấu hình chữ ký cho bundle `com.vietime.inputmethod` theo [hướng dẫn ký của Huawei](https://developer.huawei.com/consumer/cn/doc/HarmonyOS-Guides/ide-signing-auto).
+3. Build lại, xác nhận đã có HAP **signed** rồi dùng **Run** để cài. Không đổi tên file unsigned thành signed.
+4. Chạy checklist tương thích trong [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) và ghi lại phiên bản OS/ứng dụng cùng kết quả thực tế.
 
-## Hành vi hiện có
+## 🧪 Kiểm thử
 
-- Nhận phím bằng `KeyboardDelegate.on('keyEvent')`; dùng `unicodeChar` của sự kiện cho Shift/Caps Lock/layout.
-- Pre-edit chính thức: `setPreviewTextSync` / `finishTextPreviewSync`; không delete/insert toàn từ trên mỗi phím.
-- VI/EN, Ctrl+Shift (nhả tổ hợp), Alt+Z, Ctrl+Space; chỉ nhận tổ hợp hệ thống chuyển tới IME. Không global hook.
-- Backspace sửa composition; ngoài composition để editor xử lý. Enter/cursor/navigation kết thúc pre-edit rồi pass-through.
-- Panel được tạo để đáp ứng hợp đồng SDK nhưng mặc định ẩn; không detach khi người dùng tắt bàn phím ảo.
-- Preferences lưu một snapshot cấu hình; refresh theo lifecycle/notification, không I/O mỗi phím.
-- Password mặc định bypass; không log văn bản, không telemetry. Diagnostics liên process chỉ gửi metadata trong cùng bundle theo yêu cầu.
+| Bộ test | Số lượng | Phạm vi |
+|---|---:|---|
+| Engine (`tests/engine.test.cjs`) | 344 | Telex, parser âm tiết, corpus, nhận diện tiếng Anh, hành vi UniKey |
+| Session (`tests/session.test.cjs`) | 52 | Composition session, phím tắt, gõ trực tiếp, con trỏ báo trễ (editor giả lập) |
+| **Tổng** | **396** | **0 lỗi** |
 
-## Giới hạn cần biết
+Benchmark engine thuần trên Windows: p50 ≈ 0,07 ms, p99 ≈ 0,4 ms mỗi cụm 13 phím — đây **không** phải độ trễ IPC trên HarmonyOS. Chi tiết: [docs/test-results.json](docs/test-results.json).
 
-- Editor báo không hỗ trợ pre-edit (ví dụ ứng dụng Android qua EasyAbroad): **gõ trực tiếp** — mỗi phím xóa/ghi lại phần khác biệt của từ đang gõ bằng `deleteForwardSync`/`insertTextSync`. Tắt được bằng "Direct typing for apps without pre-edit". Nếu editor không báo được vị trí con trỏ, click chuột giữa từ rồi gõ tiếp có thể sửa nhầm từ trước; nhấn phím mũi tên hoặc Space trước khi click để an toàn. Lỗi IPC làm session chuyển bypass; không retry thao tác xóa/ghi phỏng đoán.
-- Nhận diện tiếng Anh ngay khi gõ bằng cấu trúc âm tiết + danh sách từ mở rộng được (xem SPEC-DECISIONS). Từ tiếng Anh trùng hoàn toàn một âm tiết tiếng Việt hợp lệ mà không có trong danh sách (ví dụ `mix` -> `mĩ`) vẫn được thêm dấu: gõ lặp phím dấu (`mixx`) hoặc thêm vào danh sách.
-- URL/email dựa vào editor type và ký tự cấu trúc. URL không có scheme, tên miền trần, hoặc prefix mơ hồ có thể cần chuyển EN trước khi gõ. Escape phục hồi raw token hiện tại; chưa có temporary-English giữ modifier.
-- Có danh sách bundle ID bypass cho terminal/code; không tự đoán loại ứng dụng. Custom shortcut, tray/status icon và mở Settings VietIME trực tiếp từ mục IME của hệ thống chưa triển khai vì chưa xác minh đầy đủ hợp đồng public tương ứng.
-- Chưa kiểm thử hiển thị menu IME, panel ẩn trên MateBook, đồng bộ Preferences thực tế, trạng thái diagnostics IPC, password hoặc độ trễ <10 ms trên thiết bị.
-- Một số ví dụ đầu bài thiếu ký tự Telex; xem [quyết định về đặc tả](docs/SPEC-DECISIONS.md). Không âm thầm autocorrect chữ hoa hoặc thêm dấu mũ.
+## 🏗️ Kiến trúc
 
-[SDK audit](docs/SDK-AUDIT.md) · [Thiết kế](docs/IMPLEMENTATION-PLAN.md) · [Riêng tư](PRIVACY.md)
+```text
+VietIME/
+├── AppScope/                 # Cấu hình bundle, phiên bản, icon ứng dụng
+├── entry/src/main/ets/
+│   ├── engine/               # Telex engine, parser âm tiết, interface engine (không phụ thuộc framework)
+│   ├── ime/                  # InputMethodExtensionAbility, xử lý phím vật lý, editor adapter, phím tắt
+│   ├── keyboard/             # Bàn phím ảo dùng chung engine, ô báo trạng thái Ví/EN
+│   ├── pages/                # Cài đặt, Chẩn đoán, trình sửa danh sách từ
+│   ├── settings/             # Preferences, model cấu hình có validation
+│   ├── entryability/         # UIAbility mở trang Cài đặt
+│   └── utils/                # Trao đổi metadata chẩn đoán trong cùng bundle
+├── scripts/                  # build, audit SDK, chạy test, kiểm tra HAP
+├── tests/                    # Unit test engine và session
+└── docs/                     # Thiết kế, quyết định đặc tả, phát hành, hồ sơ AppGallery
+```
+
+### Nguyên tắc hoạt động
+
+- **Nhận phím** qua `KeyboardDelegate.on('keyEvent')`, dùng `unicodeChar` của sự kiện nên tôn trọng Shift / Caps Lock / layout. Không dùng global hook; chỉ nhận các tổ hợp hệ thống chuyển tới IME.
+- **Hai chế độ ghi chữ:**
+  - *Gõ kiểu UniKey* (mặc định): mỗi phím chỉ xóa/ghi lại phần khác biệt của từ đang gõ bằng `deleteForwardSync` / `insertTextSync`.
+  - *Pre-edit*: `setPreviewTextSync` / `finishTextPreviewSync` với editor hỗ trợ, có gạch chân.
+- **Backspace** sửa từ đang gõ; ngoài từ đang gõ thì để editor xử lý. Enter, phím mũi tên và điều hướng kết thúc từ rồi chuyển tiếp phím.
+- **Cấu hình** lưu thành một snapshot trong Preferences, chỉ đọc lại theo lifecycle/notification — không I/O trên mỗi phím.
+- **Lỗi IPC** chuyển session sang bypass; không thử lại thao tác xóa/ghi phỏng đoán.
+
+Thiết kế chi tiết: [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md) · Quyết định đặc tả: [docs/SPEC-DECISIONS.md](docs/SPEC-DECISIONS.md).
+
+## ⚠️ Giới hạn đã biết
+
+- **Con trỏ ở editor không báo vị trí chính xác** (ví dụ ứng dụng Android qua EasyAbroad): click chuột vào giữa từ rồi gõ tiếp có thể sửa nhầm từ trước. Nhấn phím mũi tên hoặc Space trước khi click để an toàn.
+- **Từ tiếng Anh trùng âm tiết tiếng Việt hợp lệ** mà không có trong danh sách (ví dụ `mix → mĩ`) vẫn bị thêm dấu: gõ lặp phím dấu (`mixx`) hoặc thêm từ vào danh sách giữ nguyên.
+- **URL / email** được nhận diện theo loại ô nhập và ký tự cấu trúc. Tên miền trần hoặc URL không có scheme có thể cần chuyển sang EN trước khi gõ.
+- **Ứng dụng bỏ qua** (terminal, trình soạn code…) phải khai báo thủ công bằng bundle ID; bộ gõ không tự đoán loại ứng dụng.
+- **Chưa hỗ trợ:** phím tắt tùy chỉnh ngoài 3 lựa chọn sẵn, chế độ "tạm thời tiếng Anh" khi giữ phím bổ trợ, mở trực tiếp Cài đặt VietIME từ menu bộ gõ của hệ thống.
+- **Chưa đo trên thiết bị:** độ trễ đầu-cuối < 10 ms và hành vi ở mọi loại ô mật khẩu.
+
+## 📚 Tài liệu
+
+| Tài liệu | Nội dung |
+|---|---|
+| [HUONG-DAN-PHAT-HANH.md](docs/HUONG-DAN-PHAT-HANH.md) | Các bước phát hành từ đầu |
+| [RELEASE.md](docs/RELEASE.md) | Chi tiết ký, đóng gói, AppGallery và cài thử theo máy |
+| [COMPATIBILITY.md](docs/COMPATIBILITY.md) | Checklist kiểm thử tương thích |
+| [SDK-AUDIT.md](docs/SDK-AUDIT.md) | Đối chiếu API với SDK |
+| [IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md) | Thiết kế triển khai |
+| [SPEC-DECISIONS.md](docs/SPEC-DECISIONS.md) | Các quyết định về đặc tả Telex / UniKey |
+| [appgallery/](docs/appgallery/) | Hồ sơ AppGallery: store listing, ghi chú người duyệt, chính sách riêng tư |
+| [PRIVACY.md](PRIVACY.md) | Chính sách quyền riêng tư (Tiếng Việt / English) |
+
+## 📝 Nhật ký thay đổi
+
+### 1.0.4 — 26/09/2026
+
+- Gõ kiểu UniKey: ghi thẳng vào ô nhập, không gạch chân, sửa dấu tại chỗ; `d` ở bất kỳ vị trí nào (`dinhd → đinh`).
+- Tự nhận diện từ tiếng Anh; danh sách từ giữ nguyên có thể xem, sửa, xóa.
+- Biểu tượng Ví/EN trên khay hệ thống, ô báo nổi kéo thả được, phím tắt Shift.
+- Hỗ trợ ứng dụng Android qua EasyAbroad; tối ưu tốc độ khi gõ nhanh.
+- Đã kiểm thử trên Huawei MateBook Pro S.
+
+## 👤 Tác giả
+
+**Lại Thành Luân** — [v.luanlt@gmail.com](mailto:v.luanlt@gmail.com)
+
+Góp ý và báo lỗi: vui lòng tạo [Issue](https://github.com/luanlt/VietIME/issues) trên GitHub.
+
+> VietIME tái hiện hành vi gõ Telex quan sát được từ UniKey, **không** sử dụng mã nguồn UniKey (GPL).
