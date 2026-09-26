@@ -1,0 +1,266 @@
+{
+  "checked": "2026-09-25",
+  "studio": "6.1.1.280",
+  "sdk": {
+    "apiVersion": "24",
+    "displayName": "HarmonyOS 6.1.1",
+    "path": "HarmonyOS-6.1.1",
+    "platformVersion": "6.1.1",
+    "releaseType": "Release",
+    "version": "6.1.1.125",
+    "stage": "Release"
+  },
+  "apiRoot": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api",
+  "files": [
+    {
+      "file": "@ohos.inputMethod.d.ts",
+      "sha256": "717C7497BF54FFA25E57639FDB61AE3E568AC15F480D4EFF0066FC9DB7CE6CC0",
+      "matches": [
+        {
+          "line": 330,
+          "declaration": "function setSimpleKeyboardEnabled(enable: boolean): void;"
+        },
+        {
+          "line": 675,
+          "declaration": "showTextInput(callback: AsyncCallback<void>): void;"
+        },
+        {
+          "line": 689,
+          "declaration": "showTextInput(): Promise<void>;"
+        },
+        {
+          "line": 704,
+          "declaration": "showTextInput(requestKeyboardReason: RequestKeyboardReason): Promise<void>;"
+        },
+        {
+          "line": 718,
+          "declaration": "hideTextInput(callback: AsyncCallback<void>): void;"
+        },
+        {
+          "line": 732,
+          "declaration": "hideTextInput(): Promise<void>;"
+        },
+        {
+          "line": 811,
+          "declaration": "updateCursor(cursorInfo: CursorInfo, callback: AsyncCallback<void>): void;"
+        },
+        {
+          "line": 828,
+          "declaration": "updateCursor(cursorInfo: CursorInfo): Promise<void>;"
+        },
+        {
+          "line": 962,
+          "declaration": "showSoftKeyboard(callback: AsyncCallback<void>): void;"
+        },
+        {
+          "line": 978,
+          "declaration": "showSoftKeyboard(): Promise<void>;"
+        },
+        {
+          "line": 994,
+          "declaration": "hideSoftKeyboard(callback: AsyncCallback<void>): void;"
+        },
+        {
+          "line": 1010,
+          "declaration": "hideSoftKeyboard(): Promise<void>;"
+        },
+        {
+          "line": 2194,
+          "declaration": "export interface AttachOptions {"
+        }
+      ]
+    },
+    {
+      "file": "@ohos.inputMethodEngine.d.ts",
+      "sha256": "660A3523F36477D9FD05090EF42E669ADF92F635F939F8FB4D6C54966B776D2D",
+      "matches": [
+        {
+          "line": 344,
+          "declaration": "function getInputMethodAbility(): InputMethodAbility;"
+        },
+        {
+          "line": 360,
+          "declaration": "function getKeyboardDelegate(): KeyboardDelegate;"
+        },
+        {
+          "line": 421,
+          "declaration": "hideKeyboard(callback: AsyncCallback<void>): void;"
+        },
+        {
+          "line": 429,
+          "declaration": "hideKeyboard(): Promise<void>;"
+        },
+        {
+          "line": 460,
+          "declaration": "interface InputMethodEngine {"
+        },
+        {
+          "line": 471,
+          "declaration": "on(type: 'inputStart', callback: (kbController: KeyboardController, textInputClient: TextInputClient) => void): void;"
+        },
+        {
+          "line": 515,
+          "declaration": "interface InputMethodAbility {"
+        },
+        {
+          "line": 524,
+          "declaration": "on(type: 'inputStart', callback: (kbController: KeyboardController, inputClient: InputClient) => void): void;"
+        },
+        {
+          "line": 542,
+          "declaration": "on(type: 'inputStop', callback: () => void): void;"
+        },
+        {
+          "line": 749,
+          "declaration": "interface TextInputClient {"
+        },
+        {
+          "line": 758,
+          "declaration": "sendKeyFunction(action: number, callback: AsyncCallback<boolean>): void;"
+        },
+        {
+          "line": 767,
+          "declaration": "sendKeyFunction(action: number): Promise<boolean>;"
+        },
+        {
+          "line": 865,
+          "declaration": "getEditorAttribute(callback: AsyncCallback<EditorAttribute>): void;"
+        },
+        {
+          "line": 873,
+          "declaration": "getEditorAttribute(): Promise<EditorAttribute>;"
+        },
+        {
+          "line": 882,
+          "declaration": "interface InputClient {"
+        },
+        {
+          "line": 896,
+          "declaration": "sendKeyFunction(action: number, callback: AsyncCallback<boolean>): void;"
+        },
+        {
+          "line": 910,
+          "declaration": "sendKeyFunction(action: number): Promise<boolean>;"
+        },
+        {
+          "line": 1158,
+          "declaration": "getEditorAttribute(callback: AsyncCallback<EditorAttribute>): void;"
+        },
+        {
+          "line": 1169,
+          "declaration": "getEditorAttribute(): Promise<EditorAttribute>;"
+        },
+        {
+          "line": 1180,
+          "declaration": "getEditorAttributeSync(): EditorAttribute;"
+        },
+        {
+          "line": 1194,
+          "declaration": "moveCursor(direction: number, callback: AsyncCallback<void>): void;"
+        },
+        {
+          "line": 1208,
+          "declaration": "moveCursor(direction: number): Promise<void>;"
+        },
+        {
+          "line": 1221,
+          "declaration": "moveCursorSync(direction: number): void;"
+        },
+        {
+          "line": 1317,
+          "declaration": "getTextIndexAtCursor(callback: AsyncCallback<number>): void;"
+        },
+        {
+          "line": 1331,
+          "declaration": "getTextIndexAtCursor(): Promise<number>;"
+        },
+        {
+          "line": 1344,
+          "declaration": "getTextIndexAtCursorSync(): number;"
+        },
+        {
+          "line": 1420,
+          "declaration": "setPreviewText(text: string, range: Range): Promise<void>;"
+        },
+        {
+          "line": 1435,
+          "declaration": "setPreviewTextSync(text: string, range: Range): void;"
+        },
+        {
+          "line": 1447,
+          "declaration": "finishTextPreview(): Promise<void>;"
+        },
+        {
+          "line": 1458,
+          "declaration": "finishTextPreviewSync(): void;"
+        },
+        {
+          "line": 1564,
+          "declaration": "on(type: 'keyEvent', callback: (event: InputKeyEvent) => boolean): void;"
+        },
+        {
+          "line": 1601,
+          "declaration": "on(type: 'selectionChange', callback: (oldBegin: number, oldEnd: number, newBegin: number, newEnd: number) => void): void;"
+        },
+        {
+          "line": 1638,
+          "declaration": "on(type: 'editorAttributeChanged', callback: (attr: EditorAttribute) => void): void;"
+        },
+        {
+          "line": 1784,
+          "declaration": "setUiContent(path: string, callback: AsyncCallback<void>): void;"
+        },
+        {
+          "line": 1796,
+          "declaration": "setUiContent(path: string): Promise<void>;"
+        },
+        {
+          "line": 1809,
+          "declaration": "setUiContent(path: string, storage: LocalStorage, callback: AsyncCallback<void>): void;"
+        },
+        {
+          "line": 1822,
+          "declaration": "setUiContent(path: string, storage: LocalStorage): Promise<void>;"
+        },
+        {
+          "line": 2787,
+          "declaration": "export interface AttachOptions {"
+        },
+        {
+          "line": 2803,
+          "declaration": "isSimpleKeyboardEnabled?: boolean;"
+        }
+      ]
+    },
+    {
+      "file": "@ohos.InputMethodExtensionAbility.d.ts",
+      "sha256": "90F69BD849F1B8289733C917B6B2CE1B80A5ACC9ACDDC9D2101CA34F674B318C",
+      "matches": []
+    },
+    {
+      "file": "@ohos.InputMethodSubtype.d.ts",
+      "sha256": "904C1976FADCFA4CD392A8211DC6804DAF066B8370404C1C6AFA077694EC8576",
+      "matches": []
+    },
+    {
+      "file": "@ohos.multimodalInput.keyEvent.d.ts",
+      "sha256": "25018A8EC41E12ECEB6C8118943DA80F358E40A505D6060B8CB4245BCFD0A9AF",
+      "matches": []
+    },
+    {
+      "file": "@ohos.settings.d.ts",
+      "sha256": "A7F64587082B03190EAD00DF89D79777A2F71C01D529B219D8750D1020592837",
+      "matches": [
+        {
+          "line": 1275,
+          "declaration": "function openInputMethodSettings(context: Context): void;"
+        }
+      ]
+    },
+    {
+      "file": "@ohos.data.preferences.d.ts",
+      "sha256": "AB95B0967E410904D4C2E0990377741B5889BDBF5B5FB121DAB11F3B63C343D3",
+      "matches": []
+    }
+  ]
+}

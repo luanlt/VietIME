@@ -1,0 +1,14 @@
+.hvigor/
+oh_modules/
+node_modules/
+**/build/
+.test-build/
+local.properties
+*.p12
+*.p7b
+*.cer
+.idea/
+build-check.log
+*.csr
+build-app.log
+dist/

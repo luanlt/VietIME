@@ -1,0 +1,14 @@
+﻿{
+    "artifact":  "C:\\Users\\OseasyVM\\Documents\\VietIME\\dist\\VietIME-1.0.4-release.hap",
+    "sha256":  "BB4ADA2698FDA1AB8EA3155E0647F2D4D50B7EC2D9E38863BA010758158FAC34",
+    "bytes":  1044724,
+    "bundle":  "com.vietime.inputmethod",
+    "targetAPI":  60100023,
+    "compileSdk":  "6.1.1.125",
+    "signing":  "signed (debug profile: registered devices only)",
+    "bytecode":  true,
+    "systemImeManifest":  true,
+    "permissions":  [
+
+                    ]
+}

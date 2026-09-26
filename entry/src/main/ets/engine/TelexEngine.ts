@@ -1,0 +1,158 @@
+import { EngineOptions, EngineResult, InputMode, VietnameseInputEngine } from './VietnameseInputEngine';
+import { isViablePrefix, isVowel, parseSyllable, stripTone, toneChar, toneIndex, withCase } from './Syllable';
+
+export class TelexEngine implements VietnameseInputEngine {
+  private letters: string[] = [];
+  private raw: string = '';
+  private tone: number = 0;
+  private mode: InputMode = InputMode.Vietnamese;
+  private literal: boolean = false;
+  private escaped: boolean = false;
+  private lastModifier: string = '';
+  private beforeModifier: string[] = [];
+  private options: EngineOptions;
+
+  constructor(options: EngineOptions = new EngineOptions()) { this.options = options; }
+  configure(options: EngineOptions): void { this.options = options; }
+  setMode(mode: InputMode): void { this.reset(); this.mode = mode; }
+  getMode(): InputMode { return this.mode; }
+  getRaw(): string { return this.raw; }
+  reset(): void {
+    this.letters = []; this.raw = ''; this.tone = 0; this.literal = false; this.escaped = false;
+    this.lastModifier = ''; this.beforeModifier = [];
+  }
+  getComposition(): string {
+    const at = toneIndex(this.letters, this.options.modernTone);
+    return this.letters.map((char: string, index: number): string => index === at ? toneChar(char, this.tone) : char).join('');
+  }
+  finish(): string {
+    const preserve = this.escaped || this.letters.join('').toLowerCase() === 'đ';
+    // Listed English words are checked only at the word end so prefixes like meet(j) -> mệt still work.
+    const english = this.options.englishDetection && this.options.englishWords.includes(this.raw.toLowerCase());
+    const result = english || (this.options.restoreInvalid && !preserve && !parseSyllable(this.letters).valid) ? this.raw : this.getComposition();
+    this.reset();
+    return result;
+  }
+  private applyModifier(key: string): boolean {
+    if (key !== '' && key === this.lastModifier) {
+      this.letters = this.beforeModifier.slice();
+      this.letters.push(withCase(this.raw.charAt(this.raw.length - 1), key));
+      this.lastModifier = ''; this.beforeModifier = [];
+      this.escaped = true;
+      return true;
+    }
+    const prior = this.letters.slice();
+    let changed = false;
+    const syllable = parseSyllable(this.letters);
+    if (key === 'd') {
+      // UniKey-style: d anywhere in the word turns a leading d into đ (dinhd -> đinh).
+      const rest = this.letters.slice(1);
+      if (this.letters.length >= 1 && this.letters[0].toLowerCase() === 'd' &&
+        (rest.length === 0 || isViablePrefix(['đ'].concat(rest)))) {
+        this.letters[0] = withCase(this.letters[0], 'đ'); changed = true;
+      }
+    } else if (key === 'w') {
+      const low = this.letters.join('').toLowerCase();
+      if (low.includes('ươ') && this.lastModifier !== 'w') { return true; }
+      if (syllable.nucleus === 'ua') {
+        this.letters[syllable.start] = withCase(this.letters[syllable.start], 'ư');
+        this.beforeModifier = prior; this.lastModifier = key; return true;
+      }
+      const pair = Math.max(low.lastIndexOf('uo'), low.lastIndexOf('uơ'), low.lastIndexOf('ưo'));
+      if (pair >= syllable.start && pair >= 0 && !(pair === 1 && low.startsWith('qu'))) {
+        this.letters[pair] = withCase(this.letters[pair], 'ư');
+        this.letters[pair + 1] = withCase(this.letters[pair + 1], 'ơ'); changed = true;
+      } else {
+        for (let i = syllable.end - 1; i >= syllable.start && i >= 0; i--) {
+          const base = this.letters[i].toLowerCase();
+          const pos = 'auo'.indexOf(base);
+          if (pos >= 0) { this.letters[i] = withCase(this.letters[i], 'ăươ'.charAt(pos)); changed = true; break; }
+        }
+        // Telex shorthand: w with no vowel yet is ư (nhw -> như, ngwx -> ngữ); ww undoes it.
+        if (!changed && syllable.start < 0 && isViablePrefix(this.letters.concat(['ư']))) {
+          this.letters.push(withCase(this.raw.charAt(this.raw.length - 1), 'ư')); changed = true;
+        }
+      }
+    } else if ('aeo'.includes(key)) {
+      for (let i = syllable.end - 1; i >= syllable.start && i >= 0; i--) {
+        if (this.letters[i].toLowerCase() === key) {
+          this.letters[i] = withCase(this.letters[i], 'âêô'.charAt('aeo'.indexOf(key)));
+          changed = true; break;
+        }
+      }
+    }
+    if (changed) { this.beforeModifier = prior; this.lastModifier = key; }
+    return changed;
+  }
+  processKey(key: string): EngineResult {
+    if (key === 'Backspace') {
+      if (this.letters.length === 0) { return new EngineResult('', '', false); }
+      this.letters.pop();
+      if (!this.letters.some((char: string): boolean => isVowel(char))) { this.tone = 0; }
+      this.raw = this.getComposition(); this.lastModifier = ''; this.beforeModifier = [];
+      return new EngineResult(this.getComposition());
+    }
+    if (key === 'Escape') {
+      const raw = this.raw; this.reset(); return new EngineResult('', raw);
+    }
+    if (this.mode === InputMode.English) { return new EngineResult('', key); }
+    if (this.literal) {
+      if (/\s/.test(key)) { this.reset(); }
+      return new EngineResult('', key);
+    }
+    // Bound both memory and per-key work for long identifiers or pasted-like streams.
+    if (this.raw.length >= 128) {
+      const text = this.raw + key; this.reset(); this.literal = !/\s/.test(key);
+      return new EngineResult('', text);
+    }
+    if (key.length !== 1 || !/[a-zA-ZđĐăĂâÂêÊôÔơƠưƯ]/.test(key)) {
+      // ':' marks a scheme/drive only after an untransformed token (http:, C:); "chús:" stays Vietnamese.
+      const colonScheme = key === ':' && this.getComposition() === this.raw;
+      const technical = (this.options.autoUrl && ('/\\_='.includes(key) || /[0-9]/.test(key) || colonScheme)) || (this.options.autoEmail && key === '@');
+      const text = technical ? this.raw : this.finish();
+      this.reset(); this.literal = technical;
+      return new EngineResult('', text + key);
+    }
+    this.raw += key;
+    const lower = key.toLowerCase();
+    const tone = 'sfrxj'.indexOf(lower) + 1;
+    const syllable = parseSyllable(this.letters);
+    if (tone > 0 && syllable.start >= 0 && (this.options.freeTyping || syllable.valid)) {
+      if (this.tone === tone && this.options.uniKeyUndo) {
+        // UniKey: a repeated tone key removes the tone and types the key itself (ass -> as).
+        this.tone = 0; return this.toLiteral(this.getComposition() + key);
+      }
+      // A repeated tone key means "not Vietnamese": give back exactly what was typed (boss, tests).
+      if (this.options.englishDetection && this.tone === tone) { return this.toLiteral(this.raw); }
+      this.tone = this.tone === tone ? 0 : tone;
+      this.lastModifier = ''; return this.checked();
+    }
+    if (lower === 'z' && this.tone !== 0) {
+      this.tone = 0; this.lastModifier = ''; return this.checked();
+    }
+    if ('adeow'.includes(lower) && (this.options.freeTyping || syllable.valid || this.letters.length === 1) && this.applyModifier(lower)) {
+      return this.checked();
+    }
+    this.lastModifier = ''; this.beforeModifier = [];
+    this.letters.push(stripTone(key));
+    // Normalize ưo to ươ once the second vowel arrives (duwowng remains accepted).
+    const n = this.letters.length;
+    if (n >= 2 && this.letters[n - 2].toLowerCase() === 'ư' && lower === 'o') {
+      this.letters[n - 1] = withCase(key, 'ơ');
+    }
+    return this.checked();
+  }
+  // English detection: once the token cannot be Vietnamese,
+  // emit the raw keys and keep the rest of the token literal until whitespace.
+  private checked(): EngineResult {
+    if (this.options.englishDetection && !this.escaped &&
+      !isViablePrefix(this.letters)) {
+      return this.toLiteral(this.raw);
+    }
+    return new EngineResult(this.getComposition());
+  }
+  private toLiteral(text: string): EngineResult {
+    this.reset(); this.literal = true;
+    return new EngineResult('', text);
+  }
+}

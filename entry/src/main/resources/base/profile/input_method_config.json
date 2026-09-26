@@ -1,0 +1,4 @@
+{ "subtypes": [
+  { "id": "vi_telex", "label": "$string:vietnamese", "icon": "$media:ic_mode_vi", "locale": "vi-VN", "mode": "lower" },
+  { "id": "en", "label": "$string:english", "icon": "$media:ic_mode_en", "locale": "en-US", "mode": "lower" }
+] }

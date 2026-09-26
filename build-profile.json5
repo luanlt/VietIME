@@ -1,0 +1,51 @@
+{
+  "app": {
+    "products": [
+      {
+        "name": "default",
+        "compileSdkVersion": "6.1.1(24)",
+        "compatibleSdkVersion": "6.1.0(23)",
+        "targetSdkVersion": "6.1.0(23)",
+        "runtimeOS": "HarmonyOS",
+        "signingConfig": "default"
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\OseasyVM\\.ohos\\config\\default_VietIME_paOkf0mx_Mub5NpyQ8mPtwq2_xeIVMxzlOffK9RU_OM=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001BA352656A59DAC0FE5493BF878C0FBD5C95DDD4410AC21E18AE0C2C69F178F90664E399D89275ED",
+          "profile": "C:\\Users\\OseasyVM\\.ohos\\config\\default_VietIME_paOkf0mx_Mub5NpyQ8mPtwq2_xeIVMxzlOffK9RU_OM=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\OseasyVM\\.ohos\\config\\default_VietIME_paOkf0mx_Mub5NpyQ8mPtwq2_xeIVMxzlOffK9RU_OM=.p12",
+          "storePassword": "0000001BE2E9355729C469F9096F1A87CEA9EB88FA78F04BDDB5868FBED4A0C8AF37EF6CB0B4E1E855FD0A"
+        }
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

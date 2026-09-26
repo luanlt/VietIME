@@ -1,0 +1,23 @@
+{
+  "checked": "2026-09-26T02:31:08.277Z",
+  "engine": {
+    "tests": 344,
+    "passed": 344,
+    "failed": 0,
+    "benchmark": {
+      "host": "win32",
+      "scope": "pure engine, 13-key phrase, not HarmonyOS IPC",
+      "p50_ms": 0.06499999947845936,
+      "p95_ms": 0.1348439995199442,
+      "p99_ms": 0.40359400026500225
+    }
+  },
+  "session": {
+    "tests": 52,
+    "passed": 52,
+    "failed": 0
+  },
+  "total": 396,
+  "failed": 0,
+  "scope": "Host unit tests, not HarmonyOS device or app compatibility tests"
+}
