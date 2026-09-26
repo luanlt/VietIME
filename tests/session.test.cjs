@@ -68,6 +68,45 @@ check('direct: fast typing lag with prefix',()=>{const [s,e]=fast('nguowif ddepj
 check('direct: old stale read after pause is a click',()=>{const [s,e]=setup('abcdefghij ',false); let t=0; s.now=()=>t; s.process('a'); t+=5000; e.pos=2; s.process('s'); assert.equal(e.text,'abscdefghij a');});
 check('preview: caret computed, one read per key',()=>{const [s,e]=setup(); let reads=0; const c=e.cursor.bind(e); e.cursor=()=>{reads++; return c();}; for(const ch of 'tieengs') s.process(ch); assert.equal(e.text,'tiếng'); assert.ok(reads<=8, 'reads='+reads);});
 check('preview: editor with different caret falls back to read-back',()=>{const [s,e]=setup('ab '); const p=e.preview.bind(e); e.preview=(t)=>{p(t); e.pos=e.start;}; for(const ch of 'tieengs') s.process(ch); s.commit(); assert.equal(e.text,'ab tiếng');});
+// Emulates the system: a key the IME returns unhandled is typed by the editor from the real layout.
+function sys(s,e,input,layout={}) { for(const c of input){ if(!s.process(c) && c.length===1) e.insert(layout[c] ?? c); } }
+check('symbol keys go to the editor (Excel "=")',()=>{const [s,e]=setup('',false); assert.equal(s.process('='),false); assert.equal(e.calls.length,0);});
+check('symbol after word: word committed, symbol from system layout',()=>{const [s,e]=setup('',false); sys(s,e,'tieengs=1+2',{}); assert.equal(e.text,'tieengs=1+2'); const [s2,e2]=setup(''); sys(s2,e2,'Vieetj, Nam!'); assert.equal(e2.text,'Việt, Nam!'); assert.equal(e2.active,false);});
+check('pre-edit: symbol finishes preview before editor types it',()=>{const [s,e]=setup(); sys(s,e,'as.'); assert.equal(e.text,'á.'); assert.equal(e.active,false);});
+check('direct: caret tracked across system-typed symbols',()=>{const [s,e]=setup('',false); e.lag=true; sys(s,e,'=SUM(as) tieengs'); s.commit(); assert.equal(e.text,'=SUM(as) tiếng');});
+check('native symbols can be turned off',()=>{const [s,e]=setup('',false); s.setTyping(false,false,false); assert.equal(s.process('='),true); assert.equal(e.text,'=');});
+check('third tone press writes nothing',()=>{const [s,e]=setup('',false); sys(s,e,'offfice '); assert.equal(e.text,'office ');});
+check('pre-edit: third tone press writes nothing',()=>{const [s,e]=setup(); sys(s,e,'offfice '); assert.equal(e.text,'office '); assert.equal(e.calls.filter(c=>c[0]==='preview'&&c[1]==='').length,0);});
+function caps(prefix='',support=false,fieldStart=false) { const [s,e]=setup(prefix,support); s.setTyping(true,fieldStart,true); return [s,e]; }
+check('auto-capitalize after full stop (direct)',()=>{const [s,e]=caps(); sys(s,e,'xong rooif. tieeps tucj! vaan vaan? ok'); assert.equal(e.text,'xong rồi. Tiếp tục! Vân vân? Ok');});
+check('auto-capitalize after full stop (pre-edit)',()=>{const [s,e]=caps('',true); sys(s,e,'xong. ddi thooi'); s.commit(); assert.equal(e.text,'xong. Đi thôi');});
+check('no capital without space or mid-token',()=>{const [s,e]=caps(); sys(s,e,'example.com a.b tieengs'); assert.equal(e.text,'example.com a.b tiếng');});
+check('capital after closing quote and several spaces',()=>{const [s,e]=caps(); sys(s,e,'"xong."  tieeps'); assert.equal(e.text,'"xong."  Tiếp');});
+check('capital after sentence and Enter',()=>{const [s,e]=caps('',true); sys(s,e,'xong.'); s.commit(); s.newLine(); e.insert('\n'); sys(s,e,'tieeps'); s.commit(); assert.equal(e.text,'xong.\nTiếp');});
+check('no capital after Enter without full stop',()=>{const [s,e]=caps('',true); sys(s,e,'xong'); s.commit(); s.newLine(); e.insert('\n'); sys(s,e,'tieeps'); s.commit(); assert.equal(e.text,'xong\ntiếp');});
+check('click after full stop cancels capital (pre-edit)',()=>{const [s,e]=caps('abc ',true); sys(s,e,'xong. '); e.pos=1; sys(s,e,'x'); s.commit(); assert.equal(e.text,'axbc xong. ');});
+check('navigation cancels capital',()=>{const [s,e]=caps(); sys(s,e,'xong. '); s.forgetContext(); sys(s,e,'ok'); assert.equal(e.text,'xong. ok');});
+check('backspace cancels capital',()=>{const [s,e]=caps('',true); sys(s,e,'xong. '); s.process('Backspace'); e.deleteBefore(1); sys(s,e,' ok'); assert.equal(e.text,'xong. ok');});
+check('auto-capitalize off by default in session',()=>{const [s,e]=setup('',false); sys(s,e,'xong. ok'); assert.equal(e.text,'xong. ok');});
+check('capital at empty field start when enabled',()=>{const [s,e]=caps('',true,true); sys(s,e,'xin chaof'); s.commit(); assert.equal(e.text,'Xin chào'); const [s2,e2]=caps('abc ',true,true); sys(s2,e2,'xin'); s2.commit(); assert.equal(e2.text,'abc xin');});
+check('field start off by default',()=>{const [s,e]=caps('',true,false); sys(s,e,'xin'); s.commit(); assert.equal(e.text,'xin');});
+check('capital with macro expansion',()=>{const [s,e]=caps(); s.configure(Object.assign(new (require('../.test-build/engine/VietnameseInputEngine.js').EngineOptions)(),{macros:new Map([['ko','không']])})); sys(s,e,'xong. ko '); assert.equal(e.text,'xong. Không ');});
+// EasyAbroad (Teams) drops single-character deletes; longer deletes work.
+class DropEditor extends Editor { deleteBefore(n){ if(n===1){ this.calls.push(['dropped',1]); return; } super.deleteBefore(n); } }
+function bridged(input, prefix='') { const s=new CompositionSession(), e=new DropEditor(prefix); s.attach(e,false,false); s.setMinDelete(2); sys(s,e,input); return [s,e]; }
+check('bridged: no single-character deletes',()=>{const [s,e]=bridged('tieengs vieetj khoong oonr '); assert.equal(e.text,'tiếng việt không ổn '); assert.equal(e.calls.filter(c=>c[0]==='dropped').length,0);});
+check('bridged: one-letter word borrows our space',()=>{const [s,e]=bridged('xin as oo ow '); assert.equal(e.text,'xin á ô ơ '); assert.equal(e.calls.filter(c=>c[0]==='dropped').length,0);});
+check('bridged: backspace inside word',()=>{const [s,e]=bridged('tieengs'); s.process('Backspace'); assert.equal(e.text,'tiến'); assert.equal(e.calls.filter(c=>c[0]==='dropped').length,0);});
+check('bridged: caret stays consistent',()=>{const [s,e]=bridged('ddi ddaau '); assert.equal(e.text,'đi đâu '); s.process('a'); assert.equal(e.text,'đi đâu a');});
+check('bridged: one-letter word at field start repaired on next key',()=>{const [s,e]=bridged('ddi as'); s.commit(); assert.equal(e.text,'đi á');});
+check('bridged: repair skipped when the delete worked',()=>{const s=new CompositionSession(), e=new Editor(); s.attach(e,false,false); s.setMinDelete(2); sys(s,e,'ddi '); assert.equal(e.text,'đi '); assert.deepEqual(e.calls.slice(0,3),[['insert','d'],['delete',1],['insert','đ']]); assert.equal(e.calls.length,5);});
+check('native editors keep minimal deletes',()=>{const [s,e]=direct('ass'); assert.deepEqual(e.calls,[['insert','a'],['delete',1],['insert','á'],['delete',1],['insert','ass']]);});
+// ChatGPT via EasyAbroad after sending: the first caret read returns the old field's caret (20).
+function stale(first=20) { const s=new CompositionSession(), e=new DropEditor(''); const c=e.cursor.bind(e); let reads=0; e.cursor=()=>reads++===0?first:c(); s.attach(e,false,false); s.setMinDelete(2); let t=0; s.now=()=>t; return [s,e,(ms)=>{t+=ms;}]; }
+check('stale first caret: rebased by first selection event, slow typing',()=>{const [s,e,wait]=stale(); s.process('d'); s.selectionChanged(1,1,-1); for(const c of 'di'){ wait(1500); s.process(c); } s.commit(); assert.equal(e.text,'đi');});
+check('stale first caret without rebase would restart the word',()=>{const [s,e,wait]=stale(); s.process('d'); for(const c of 'di'){ wait(1500); s.process(c); } s.commit(); assert.equal(e.text,'ddi');});
+check('selection event before first write is the base',()=>{const [s,e,wait]=stale(); s.selectionChanged(0,0,-1); for(const c of 'vieetj'){ wait(1500); s.process(c); } s.commit(); assert.equal(e.text,'việt');});
+check('attach caret dropped after a native key',()=>{const s=new CompositionSession(), e=new Editor('abc'); s.attach(e,false,false); s.selectionChanged(3,3,-1); s.process('Backspace'); e.deleteBefore(1); sys(s,e,'as'); assert.equal(e.text,'abá');});
 check('Shift tap toggles',()=>{const t=new ShiftTapTracker(); assert.equal(t.update(true,true,false,false,false),false); assert.equal(t.update(false,true,false,false,false),true);});
 check('Shift+letter (capitals) does not toggle',()=>{const t=new ShiftTapTracker(); t.update(true,true,false,false,false); t.update(true,false,false,false,false); t.update(false,false,false,false,false); assert.equal(t.update(false,true,false,false,false),false);});
 check('Ctrl+Shift does not trigger Shift tap',()=>{const t=new ShiftTapTracker(); t.update(true,false,true,false,false); t.update(true,true,true,false,false); assert.equal(t.update(false,true,true,false,false),false);});

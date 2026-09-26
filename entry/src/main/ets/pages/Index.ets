@@ -5,6 +5,7 @@ import { SettingsModel } from '../settings/SettingsModel';
 import { SettingsRepository } from '../settings/SettingsRepository';
 import { DEFAULT_ENGLISH_WORDS } from '../engine/VietnameseInputEngine';
 import { WordListEditor } from './WordListEditor';
+import { MacroEditor } from './MacroEditor';
 import BuildProfile from 'BuildProfile';
 import { SettingsSignal } from '../utils/StatusBridge';
 
@@ -132,6 +133,14 @@ struct Index {
           .onClick(() => { this.config.englishList = DEFAULT_ENGLISH_WORDS.slice(); this.save(); })
         Text('Chưa có kiểm tra chính tả bằng từ điển; bộ gõ chỉ kiểm tra cấu trúc âm tiết.').fontSize(12)
           .fontColor($r('sys.color.ohos_id_color_text_secondary')).width('100%')
+
+        this.section('Tính năng nâng cao', 'Tự viết hoa, gõ tắt và cách xử lý phím ký hiệu.')
+        this.switchRow('Viết hoa chữ cái đầu câu', 'Tự viết hoa chữ đầu tiên sau dấu . ! ? rồi dấu cách hoặc xuống dòng. Chỉ áp dụng khi gõ tiếng Việt.', this.config.autoCapitalize, (v: boolean) => { this.config.autoCapitalize = v; this.save(); })
+        this.switchRow('Viết hoa chữ đầu ô nhập trống', 'Viết hoa chữ đầu tiên khi con trỏ ở đầu ô nhập. Nên TẮT nếu hay gõ trong Excel hoặc ô tìm kiếm.', this.config.capitalizeFieldStart, (v: boolean) => { this.config.capitalizeFieldStart = v; this.save(); })
+        this.switchRow('Để hệ thống gõ số và ký hiệu', 'BẬT: ở ứng dụng HarmonyOS, phím số và ký hiệu (= - [ ] ; …) do hệ thống xử lý như khi dùng bàn phím Celia, tránh lỗi = thành +. Ứng dụng Android (EasyAbroad) luôn do VietIME ghi. TẮT: VietIME tự ghi ký tự ở mọi ứng dụng.', this.config.nativeSymbols, (v: boolean) => { this.config.nativeSymbols = v; this.save(); })
+        this.switchRow('Gõ tắt', 'Thay từ viết tắt bằng cụm từ đầy đủ khi kết thúc từ: vn → Việt Nam, Vn → Việt Nam, KO → KHÔNG.', this.config.macroEnabled, (v: boolean) => { this.config.macroEnabled = v; this.save(); })
+        MacroEditor({ items: this.config.macros, onChanged: (items: string[]): void => { this.config.macros = items; this.save(); } })
+          .visibility(this.config.macroEnabled ? Visibility.Visible : Visibility.None)
 
         this.section('Hành vi', 'Không thu thập hay gửi nội dung gõ ra mạng.')
         this.switchRow('Gõ tiếng Việt trong ô mật khẩu', 'Mặc định TẮT. Nội dung ô nhạy cảm không bao giờ hiện trong trang chẩn đoán.', this.config.passwordVietnamese, (v: boolean) => { this.config.passwordVietnamese = v; this.save(); })

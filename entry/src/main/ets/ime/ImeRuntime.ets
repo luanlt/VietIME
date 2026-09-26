@@ -16,7 +16,7 @@ import { ImeStatus, SettingsSignal, StatusBridge } from '../utils/StatusBridge';
 // Subtype ids from input_method_config.json; the system shows the current one (Ví / EN).
 const SUBTYPE_VI: string = 'vi_telex';
 const SUBTYPE_EN: string = 'en';
-const MODIFIER_KEYS: number[] = [KeyCode.KEYCODE_CTRL_LEFT, KeyCode.KEYCODE_CTRL_RIGHT, KeyCode.KEYCODE_SHIFT_LEFT, KeyCode.KEYCODE_SHIFT_RIGHT];
+const MODIFIER_KEYS: number[] =[KeyCode.KEYCODE_CTRL_LEFT, KeyCode.KEYCODE_CTRL_RIGHT, KeyCode.KEYCODE_SHIFT_LEFT, KeyCode.KEYCODE_SHIFT_RIGHT];
 
 export class ImeRuntime {
   private ability: inputMethodEngine.InputMethodAbility = inputMethodEngine.getInputMethodAbility();
@@ -53,12 +53,14 @@ export class ImeRuntime {
       this.attribute = client.getEditorAttributeSync();
       this.session.attach(new HarmonyEditor(client), this.preEdit(this.attribute), this.shouldBypass());
       this.session.configure(this.config.engineOptions()); this.session.setDirectFallback(this.config.directFallback || this.config.uniKeyStyle);
+      this.applyTyping();
       this.logEditor('start');
       this.publishState();
     } catch (error) { this.session.detach(); this.fail(error as BusinessError); }
     this.syncPanel(); this.syncIndicator();
   };
   private onStop = (): void => {
+    this.log('stop');
     this.session.detach(); this.client = undefined; this.attribute = undefined; this.sensitive = true;
     this.consumed.clear(); this.chord.reset(); this.shiftTap.reset(); this.altHeld = false; this.wantPanel = false; this.syncPanel(); this.publishState();
     this.syncIndicator();
@@ -75,17 +77,18 @@ export class ImeRuntime {
   private onShow = (): void => { this.wantPanel = true; this.syncPanel(); };
   private onHide = (): void => { this.wantPanel = false; this.syncPanel(); };
   private onSelection = (oldStart: number, oldEnd: number, start: number, end: number): void => {
-    try { this.session.selectionChanged(start, end); } catch (error) { this.fail(error as BusinessError); }
+    this.log(`selection ${oldStart},${oldEnd} -> ${start},${end}`);
+    try { this.session.selectionChanged(start, end, oldStart); } catch (error) { this.fail(error as BusinessError); }
   };
   private onAttribute = (attribute: inputMethodEngine.EditorAttribute): void => {
     // Commit only to the currently owned client; do not inspect password content.
     this.attribute = attribute;
-    try { this.session.setPolicy(this.preEdit(attribute), this.shouldBypass()); } catch (error) { this.fail(error as BusinessError); }
+    try { this.session.setPolicy(this.preEdit(attribute), this.shouldBypass()); this.applyTyping(); } catch (error) { this.fail(error as BusinessError); }
     this.logEditor('attribute');
     this.publishState();
   };
   private onKey = (event: keyEvent.KeyEvent): boolean => {
-    if (!this.client || !this.panel) { return false; }
+    if (!this.client || !this.panel) { this.log(`key without ${this.client ? 'panel' : 'client'}`); return false; }
     const code: number = event.key.code;
     const modifier = MODIFIER_KEYS.includes(code);
     if (event.action === keyEvent.Action.CANCEL) { this.chord.reset(); this.consumed.clear(); return false; }
@@ -111,18 +114,33 @@ export class ImeRuntime {
         this.consumed.add(code); return true;
       }
       if (modifier) { return false; }
-      if (event.ctrlKey || event.altKey || event.logoKey || event.fnKey) { this.session.commit(); return false; }
-      if (code === KeyCode.KEYCODE_ENTER || code === KeyCode.KEYCODE_DPAD_LEFT || code === KeyCode.KEYCODE_DPAD_RIGHT ||
+      if (event.ctrlKey || event.altKey || event.logoKey || event.fnKey) { this.session.commit(); this.session.forgetContext(); return false; }
+      if (code === KeyCode.KEYCODE_ENTER || code === KeyCode.KEYCODE_NUMPAD_ENTER) { return this.enter(event.shiftKey); }
+      if (code === KeyCode.KEYCODE_DPAD_LEFT || code === KeyCode.KEYCODE_DPAD_RIGHT ||
         code === KeyCode.KEYCODE_DPAD_UP || code === KeyCode.KEYCODE_DPAD_DOWN || code === KeyCode.KEYCODE_FORWARD_DEL ||
-        code === KeyCode.KEYCODE_MOVE_HOME || code === KeyCode.KEYCODE_MOVE_END || code === KeyCode.KEYCODE_TAB) {
-        this.session.commit(); return false;
+        code === KeyCode.KEYCODE_MOVE_HOME || code === KeyCode.KEYCODE_MOVE_END || code === KeyCode.KEYCODE_TAB ||
+        code === KeyCode.KEYCODE_PAGE_UP || code === KeyCode.KEYCODE_PAGE_DOWN) {
+        this.session.commit(); this.session.forgetContext(); return false;
       }
       let text = '';
       if (code === KeyCode.KEYCODE_DEL) { text = 'Backspace'; }
       else if (code === KeyCode.KEYCODE_ESCAPE) { text = 'Escape'; }
+      // Space arrives without a printable unicodeChar on HarmonyOS PC. Write it ourselves: a raw
+      // Space passed to an Android app (EasyAbroad) can land on another focused view (Teams jumped).
+      else if (code === KeyCode.KEYCODE_SPACE) { text = ' '; }
       else if (event.unicodeChar >= 32 && event.unicodeChar <= 0x10FFFF) { text = String.fromCodePoint(event.unicodeChar); }
       else { this.session.commit(); return false; }
       const handled = this.session.process(text);
+      // Key class only, never the character itself.
+      if (BuildProfile.DEBUG) {
+        const kind = /^\p{L}$/u.test(text) ? 'letter' : (/^\p{N}$/u.test(text) ? 'digit' : (/^\s$/u.test(text) ? 'space' : (text.length > 1 ? text : 'symbol')));
+        this.log(`key ${kind} handled=${handled}`);
+      }
+      // Symbol keys only (never letters or digits): unicodeChar vs key code, to diagnose layouts
+      // where the reported character differs from the key cap (= arriving as +).
+      if (BuildProfile.DEBUG && /^[^\p{L}\p{N}\s]$/u.test(text)) {
+        this.log(`symbol key code=${code} unicode=${event.unicodeChar} shift=${event.shiftKey} passed=${!handled}`);
+      }
       // No per-key UI/state publishing: keep the key path to engine + editor IPC only.
       if (handled) { this.consumed.add(code); }
       return handled;
@@ -132,8 +150,15 @@ export class ImeRuntime {
       this.consumed.add(code); return true;
     }
   };
+  // Enter always goes to the editor as a raw key. ChatGPT via EasyAbroad declares Enter as
+  // new line and inserts one with any IME (Celia included), so there is nothing to fix here.
+  private enter(shift: boolean): boolean {
+    this.session.commit(); this.session.newLine();
+    this.log(`enter action=${this.attribute?.enterKeyType} preview=${this.attribute?.isTextPreviewSupported} shift=${shift}`);
+    return false;
+  }
   create(context: InputMethodExtensionContext): void {
-    if (BuildProfile.DEBUG) { this.session.trace = (m: string): void => { hilog.info(0x0F1E, 'VietIME', 'probe %{public}s', m); }; }
+    if (BuildProfile.DEBUG) { this.session.tracing = true; this.session.trace =(m: string): void => { hilog.info(0x0F1E, 'VietIME', 'probe %{public}s', m); }; }
     this.alive = true;
     this.statusBridge = new StatusBridge();
     this.statusBridge.serve((): ImeStatus => {
@@ -246,10 +271,19 @@ export class ImeRuntime {
     try {
       this.session.commit(); this.config = this.repository?.load() ?? this.config;
       this.session.configure(this.config.engineOptions()); this.session.setDirectFallback(this.config.directFallback || this.config.uniKeyStyle);
+      this.applyTyping();
       const attr = this.attribute;
       if (attr) { this.session.setPolicy(this.preEdit(attr), this.shouldBypass()); } else { this.session.setBypass(this.shouldBypass()); }
       this.syncPanel(); this.publishState(); this.syncIndicator();
     } catch (error) { this.fail(error as BusinessError); }
+  }
+  // Symbols are left to the editor only in native HarmonyOS editors (they support pre-edit).
+  // Android apps via EasyAbroad route raw keys to their focused view, not always the text field.
+  private applyTyping(): void {
+    const native = this.attribute?.isTextPreviewSupported ?? false;
+    this.session.setTyping(this.config.autoCapitalize, this.config.capitalizeFieldStart, this.config.nativeSymbols && native);
+    // EasyAbroad drops about half of single-character deletes (Teams, 2026-09-26 device logs).
+    this.session.setMinDelete(native ? 1 : 2);
   }
   toggleMode(): void {
     // One physical press can surface twice (key repeat / duplicated events): debounce 300 ms.
@@ -323,8 +357,8 @@ export class ImeRuntime {
     if (!attr) { return; }
     let cursor = 'ok';
     try { this.client?.getTextIndexAtCursorSync(); } catch (error) { cursor = `err ${(error as BusinessError).code}`; }
-    hilog.info(0x0F1E, 'VietIME', '%{public}s preview=%{public}s pattern=%{public}d direct=%{public}s sensitive=%{public}s cursor=%{public}s app=%{public}s',
-      event, String(attr.isTextPreviewSupported), attr.inputPattern, String(this.session.isDirect()), String(this.sensitive), cursor,
+    hilog.info(0x0F1E, 'VietIME', '%{public}s preview=%{public}s pattern=%{public}d enter=%{public}d direct=%{public}s sensitive=%{public}s cursor=%{public}s app=%{public}s',
+      event, String(attr.isTextPreviewSupported), attr.inputPattern, attr.enterKeyType, String(this.session.isDirect()), String(this.sensitive), cursor,
       BuildProfile.DEBUG ? (attr.bundleName ?? '') : '-');
   }
   // Event metadata only (never typed text); debug builds only. Errors are always logged by fail().

@@ -104,6 +104,27 @@ check('UniKey undo option', () => { const o = new EngineOptions(); o.uniKeyUndo 
 check('email bypass ends at whitespace', () => assert.equal(type('as@example.com Vieetj'), 'as@example.com Việt'));
 check('Caps Lock plus Shift casing supplied by caller', () => assert.equal(type('nGUYEENX'), 'nGUYỄN'));
 check('backspace then continue', () => { const e=new TelexEngine(); for(const c of 'tieengs')e.processKey(c); e.processKey('Backspace'); e.processKey('g'); assert.equal(e.finish(),'tiếng'); });
+check('third tone press after restore is swallowed: offfice', () => assert.equal(type('offfice office asss ass '), 'office office ass ass '));
+check('swallow only right after the restore', () => assert.equal(type('offif '), 'offif '));
+check('swallowed key writes nothing', () => { const e = new TelexEngine(); for (const c of 'of') e.processKey(c); assert.equal(e.processKey('f').commit, 'off'); const r = e.processKey('f'); assert.deepEqual([r.handled, r.commit, r.composition], [true, '', '']); });
+check('UniKey undo option unaffected by swallow', () => { const o = new EngineOptions(); o.uniKeyUndo = true; assert.equal(type('offf ', o), 'off '); });
+check('symbols and digits flagged for pass-through', () => {
+  const e = new TelexEngine(); for (const c of 'tieengs') e.processKey(c);
+  const r = e.processKey('='); assert.deepEqual([r.commit, r.passKey], ['tieengs=', true]);
+  const d = new TelexEngine(); for (const c of 'as') d.processKey(c);
+  const dot = d.processKey('.'); assert.deepEqual([dot.commit, dot.passKey], ['á.', true]);
+  assert.equal(new TelexEngine().processKey('5').passKey, true);
+  assert.equal(new TelexEngine().processKey(' ').passKey, false);
+  const l = new TelexEngine(); for (const c of 'project') l.processKey(c); assert.equal(l.processKey('(').passKey, true);
+  assert.equal(new TelexEngine().processKey('a').passKey, false);
+});
+const macroOptions = () => { const o = new EngineOptions(); o.macros = new Map([['vn', 'Việt Nam'], ['ko', 'không'], ['nx', 'nhận xét'], ['dc', 'được']]); return o; };
+check('macro expands at word end', () => assert.equal(type('vn ko nx, dc.', macroOptions()), 'Việt Nam không nhận xét, được.'));
+check('macro follows typed case', () => assert.equal(type('Ko KO Nx ', macroOptions()), 'Không KHÔNG Nhận xét '));
+check('macro prefix is not switched to English', () => { const e = new TelexEngine(macroOptions()); e.processKey('n'); assert.equal(e.processKey('x').composition, 'nx'); });
+check('longer words are not macros', () => assert.equal(type('vnn kos ', macroOptions()), 'vnn kó '));
+check('macros off by default', () => assert.equal(type('vn '), 'vn '));
+check('macro not applied to technical tokens', () => assert.equal(type('vn/ko', macroOptions()), 'vn/ko'));
 const timings = [];
 for(let i=0;i<10000;i++) { const start = performance.now(); type('tieengs Vieetj'); timings.push(performance.now()-start); }
 timings.sort((a,b)=>a-b);

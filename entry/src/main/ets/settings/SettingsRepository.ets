@@ -1,6 +1,6 @@
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
-import { SettingsModel } from './SettingsModel';
+import { parseMacro, SettingsModel } from './SettingsModel';
 import { DEFAULT_ENGLISH_WORDS } from '../engine/VietnameseInputEngine';
 
 const NAME: string = 'vietime_settings_v1';
@@ -64,6 +64,13 @@ export class SettingsRepository {
       config.uniKeyStyle = this.bool(values, 'uniKeyStyle', true);
       config.uniKeyUndo = this.bool(values, 'uniKeyUndo', false);
       config.englishList = this.englishList(values);
+      config.autoCapitalize = this.bool(values, 'autoCapitalize', true);
+      config.capitalizeFieldStart = this.bool(values, 'capitalizeFieldStart', false);
+      config.nativeSymbols = this.bool(values, 'nativeSymbols', true);
+      config.macroEnabled = this.bool(values, 'macroEnabled', true);
+      const macros = values['macros'];
+      config.macros = Array.isArray(macros) ? (macros as string[]).filter((m: string): boolean =>
+        typeof m === 'string' && parseMacro(m).length === 2).slice(0, 500) : [];
       const theme = this.str(values, 'theme', 'System');
       config.theme = ['System','Light','Dark'].includes(theme) ? theme : 'System';
       config.keyboardHeight = this.num(values, 'keyboardHeight', 280, 180, 420);

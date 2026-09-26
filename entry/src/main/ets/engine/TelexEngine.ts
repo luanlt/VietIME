@@ -10,6 +10,8 @@ export class TelexEngine implements VietnameseInputEngine {
   private escaped: boolean = false;
   private lastModifier: string = '';
   private beforeModifier: string[] = [];
+  // Tone key swallowed once after a repeated-tone restore: UniKey habit off+f -> off, not offf.
+  private absorb: string = '';
   private options: EngineOptions;
 
   constructor(options: EngineOptions = new EngineOptions()) { this.options = options; }
@@ -19,19 +21,39 @@ export class TelexEngine implements VietnameseInputEngine {
   getRaw(): string { return this.raw; }
   reset(): void {
     this.letters = []; this.raw = ''; this.tone = 0; this.literal = false; this.escaped = false;
-    this.lastModifier = ''; this.beforeModifier = [];
+    this.lastModifier = ''; this.beforeModifier = []; this.absorb = '';
   }
+  // Inside a word (composing or a literal English token), where auto-capitalization never applies.
+  inWord(): boolean { return this.raw.length > 0 || this.literal; }
   getComposition(): string {
     const at = toneIndex(this.letters, this.options.modernTone);
     return this.letters.map((char: string, index: number): string => index === at ? toneChar(char, this.tone) : char).join('');
   }
   finish(): string {
+    const macro = this.expandMacro();
+    if (macro !== undefined) { this.reset(); return macro; }
     const preserve = this.escaped || this.letters.join('').toLowerCase() === 'đ';
     // Listed English words are checked only at the word end so prefixes like meet(j) -> mệt still work.
     const english = this.options.englishDetection && this.options.englishWords.includes(this.raw.toLowerCase());
     const result = english || (this.options.restoreInvalid && !preserve && !parseSyllable(this.letters).valid) ? this.raw : this.getComposition();
     this.reset();
     return result;
+  }
+  // Expansion follows the typed case: vn -> Việt Nam, Ko -> Không, KO -> KHÔNG.
+  private expandMacro(): string | undefined {
+    if (this.options.macros.size === 0 || this.raw.length === 0) { return undefined; }
+    const value = this.options.macros.get(this.raw.toLowerCase());
+    if (value === undefined) { return undefined; }
+    if (this.raw.length > 1 && this.raw === this.raw.toUpperCase()) { return value.toUpperCase(); }
+    const first = this.raw.charAt(0);
+    return first !== first.toLowerCase() ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+  }
+  // A token that may still become a macro key is never switched to literal English.
+  private macroPrefix(): boolean {
+    if (this.options.macros.size === 0) { return false; }
+    const low = this.raw.toLowerCase();
+    for (const key of this.options.macros.keys()) { if (key.startsWith(low)) { return true; } }
+    return false;
   }
   private applyModifier(key: string): boolean {
     if (key !== '' && key === this.lastModifier) {
@@ -85,6 +107,7 @@ export class TelexEngine implements VietnameseInputEngine {
     return changed;
   }
   processKey(key: string): EngineResult {
+    const absorb = this.absorb; this.absorb = '';
     if (key === 'Backspace') {
       if (this.letters.length === 0) { return new EngineResult('', '', false); }
       this.letters.pop();
@@ -96,22 +119,25 @@ export class TelexEngine implements VietnameseInputEngine {
       const raw = this.raw; this.reset(); return new EngineResult('', raw);
     }
     if (this.mode === InputMode.English) { return new EngineResult('', key); }
+    if (absorb !== '' && key.toLowerCase() === absorb) { return new EngineResult('', ''); }
+    const letter = key.length === 1 && /[a-zA-ZđĐăĂâÂêÊôÔơƠưƯ]/.test(key);
+    const space = /\s/.test(key);
     if (this.literal) {
-      if (/\s/.test(key)) { this.reset(); }
-      return new EngineResult('', key);
+      if (space) { this.reset(); }
+      return new EngineResult('', key, true, !letter && !space);
     }
     // Bound both memory and per-key work for long identifiers or pasted-like streams.
     if (this.raw.length >= 128) {
       const text = this.raw + key; this.reset(); this.literal = !/\s/.test(key);
       return new EngineResult('', text);
     }
-    if (key.length !== 1 || !/[a-zA-ZđĐăĂâÂêÊôÔơƠưƯ]/.test(key)) {
+    if (!letter) {
       // ':' marks a scheme/drive only after an untransformed token (http:, C:); "chús:" stays Vietnamese.
       const colonScheme = key === ':' && this.getComposition() === this.raw;
       const technical = (this.options.autoUrl && ('/\\_='.includes(key) || /[0-9]/.test(key) || colonScheme)) || (this.options.autoEmail && key === '@');
       const text = technical ? this.raw : this.finish();
       this.reset(); this.literal = technical;
-      return new EngineResult('', text + key);
+      return new EngineResult('', text + key, true, !space);
     }
     this.raw += key;
     const lower = key.toLowerCase();
@@ -123,7 +149,10 @@ export class TelexEngine implements VietnameseInputEngine {
         this.tone = 0; return this.toLiteral(this.getComposition() + key);
       }
       // A repeated tone key means "not Vietnamese": give back exactly what was typed (boss, tests).
-      if (this.options.englishDetection && this.tone === tone) { return this.toLiteral(this.raw); }
+      // A third press right after is the UniKey habit of "remove the tone": swallow it (offf -> off).
+      if (this.options.englishDetection && this.tone === tone) {
+        const result = this.toLiteral(this.raw); this.absorb = lower; return result;
+      }
       this.tone = this.tone === tone ? 0 : tone;
       this.lastModifier = ''; return this.checked();
     }
@@ -146,7 +175,7 @@ export class TelexEngine implements VietnameseInputEngine {
   // emit the raw keys and keep the rest of the token literal until whitespace.
   private checked(): EngineResult {
     if (this.options.englishDetection && !this.escaped &&
-      !isViablePrefix(this.letters)) {
+      !isViablePrefix(this.letters) && !this.macroPrefix()) {
       return this.toLiteral(this.raw);
     }
     return new EngineResult(this.getComposition());

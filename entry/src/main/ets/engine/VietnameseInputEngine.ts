@@ -17,10 +17,15 @@ export class EngineOptions {
   englishWords: string[] = DEFAULT_ENGLISH_WORDS.slice();
   // Repeated tone key: UniKey behaviour (ass -> as) instead of the raw keys (ass -> ass).
   uniKeyUndo: boolean = false;
+  // Abbreviations expanded at the end of a word (lower-case key -> expansion), e.g. vn -> Việt Nam.
+  macros: Map<string, string> = new Map<string, string>();
 }
 
 export class EngineResult {
-  constructor(public composition: string = '', public commit: string = '', public handled: boolean = true) {}
+  // passKey: the commit ends with the key itself (a digit or symbol), which the host may leave
+  // to the editor so the character comes from the system keyboard layout, not from unicodeChar.
+  constructor(public composition: string = '', public commit: string = '', public handled: boolean = true,
+    public passKey: boolean = false) {}
 }
 
 export interface VietnameseInputEngine {

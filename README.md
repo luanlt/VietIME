@@ -6,10 +6,10 @@
 
 **Bộ gõ tiếng Việt Telex cho HarmonyOS PC — gõ nhanh như UniKey, chạy hoàn toàn ngoại tuyến.**
 
-[![Version](https://img.shields.io/badge/version-1.0.4-2563eb)](AppScope/app.json5)
+[![Version](https://img.shields.io/badge/version-1.0.5-2563eb)](AppScope/app.json5)
 [![HarmonyOS](https://img.shields.io/badge/HarmonyOS-6.1.0%2B%20(API%2023)-cf0a2c)](build-profile.json5)
 [![ArkTS](https://img.shields.io/badge/ArkTS-ArkUI-7c3aed)](entry/src/main/ets)
-[![Tests](https://img.shields.io/badge/tests-396%20passed-16a34a)](docs/test-results.json)
+[![Tests](https://img.shields.io/badge/tests-438%20passed-16a34a)](docs/test-results.json)
 [![Permissions](https://img.shields.io/badge/permissions-none-0f766e)](PRIVACY.md)
 
 [Tính năng](#-tính-năng) · [Cài đặt](#-cài-đặt--sử-dụng) · [Build](#-build-từ-mã-nguồn) · [Kiến trúc](#-kiến-trúc) · [Giới hạn](#-giới-hạn-đã-biết) · [Tài liệu](#-tài-liệu)
@@ -22,7 +22,7 @@
 
 VietIME là bộ gõ tiếng Việt kiểu **Telex** viết native bằng ArkTS/ArkUI cho **HarmonyOS PC (2in1)**, dùng với bàn phím vật lý. Bộ gõ đăng ký với hệ thống qua `InputMethodExtensionAbility`, không cần quyền hệ thống nào, không kết nối mạng và không lưu lịch sử gõ.
 
-Phiên bản **1.0.4** đã chạy thực tế trên **Huawei MateBook Pro S (MOR-M1), HarmonyOS 6.1.0.135 / API 24**, gõ được trong ứng dụng HarmonyOS native và ứng dụng Android chạy qua EasyAbroad (Zalo, Messenger…).
+Phiên bản **1.0.5** đã chạy thực tế trên **Huawei MateBook Pro S (MOR-M1), HarmonyOS 6.1.0.135 / API 24**, gõ được trong ứng dụng HarmonyOS native và ứng dụng Android chạy qua EasyAbroad (Zalo, Messenger…).
 
 ```text
 tieengs Vieetj  →  tiếng Việt
@@ -42,6 +42,9 @@ project windows →  project windows   (tự nhận diện tiếng Anh)
 | 🏷️ **Chỉ báo trạng thái** | Biểu tượng Ví/EN trên khay hệ thống và ô báo nổi có thể kéo thả. |
 | 📱 **Ứng dụng Android** | Tự chuyển sang chế độ gõ trực tiếp với editor không hỗ trợ pre-edit (EasyAbroad), chịu được việc báo vị trí con trỏ trễ. |
 | 🔒 **Riêng tư** | Tự bỏ qua ô mật khẩu/PIN/OTP, URL và email; không quyền, không mạng, không telemetry. Xem [PRIVACY.md](PRIVACY.md). |
+| 🔠 **Tự viết hoa** | Viết hoa chữ đầu câu sau `. ! ?` + dấu cách/xuống dòng; tùy chọn viết hoa chữ đầu ô nhập trống. |
+| ✂️ **Gõ tắt** | Danh sách từ viết tắt do bạn tự quản lý: `vn → Việt Nam`, `Ko → Không`, `KO → KHÔNG`. |
+| 🔣 **Phím số & ký hiệu** | Để hệ thống gõ số và ký hiệu theo đúng bố cục bàn phím (như bàn phím Celia), nên `=` trong Excel luôn ra `=`. |
 | 🛠️ **Tùy biến** | Kiểu đặt dấu mới/cũ, gõ lặp phím dấu kiểu UniKey (`ass → as`), danh sách ứng dụng bỏ qua, bàn phím ảo tùy chọn, trang Chẩn đoán. |
 
 ## 📦 Cài đặt & sử dụng
@@ -105,9 +108,9 @@ Kết quả build nằm tại `entry/build/default/outputs/default/`. Thông tin
 
 | Bộ test | Số lượng | Phạm vi |
 |---|---:|---|
-| Engine (`tests/engine.test.cjs`) | 344 | Telex, parser âm tiết, corpus, nhận diện tiếng Anh, hành vi UniKey |
-| Session (`tests/session.test.cjs`) | 52 | Composition session, phím tắt, gõ trực tiếp, con trỏ báo trễ (editor giả lập) |
-| **Tổng** | **396** | **0 lỗi** |
+| Engine (`tests/engine.test.cjs`) | 355 | Telex, parser âm tiết, corpus, nhận diện tiếng Anh, hành vi UniKey, gõ tắt |
+| Session (`tests/session.test.cjs`) | 83 | Composition session, phím tắt, gõ trực tiếp, con trỏ báo trễ, phím ký hiệu, tự viết hoa (editor giả lập) |
+| **Tổng** | **438** | **0 lỗi** |
 
 Benchmark engine thuần trên Windows: p50 ≈ 0,07 ms, p99 ≈ 0,4 ms mỗi cụm 13 phím — đây **không** phải độ trễ IPC trên HarmonyOS. Chi tiết: [docs/test-results.json](docs/test-results.json).
 
@@ -164,6 +167,13 @@ Thiết kế chi tiết: [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.
 | [PRIVACY.md](PRIVACY.md) | Chính sách quyền riêng tư (Tiếng Việt / English) |
 
 ## 📝 Nhật ký thay đổi
+
+### 1.0.5 — 26/09/2026
+
+- **Sửa lỗi phím `=` ra `+`** (ứng dụng HarmonyOS): phím số và ký hiệu giờ do hệ thống gõ theo bố cục bàn phím thật, thay vì VietIME tự ghi ký tự từ `unicodeChar` của sự kiện phím. Có thể tắt trong *Tính năng nâng cao*.
+- **Ứng dụng Android qua EasyAbroad (Teams, ChatGPT…):** hết lỗi giao diện Teams nhảy sang chỗ khác khi gõ dấu cách; hết lỗi chữ lặp (`vieêệt`, `oôổn`) do EasyAbroad bỏ qua lệnh xóa 1 ký tự; sửa vị trí con trỏ sai sau khi gửi tin và ô nhập được làm trống.
+- **Sửa lỗi `office` thành `offfice`**: gõ phím dấu lần thứ ba ngay sau khi đã khôi phục (`o f f f`) không còn thêm chữ thừa.
+- **Mới:** tự viết hoa chữ đầu câu, viết hoa chữ đầu ô nhập (tùy chọn), gõ tắt với danh sách tự quản lý — tất cả cài đặt trong mục *Tính năng nâng cao*.
 
 ### 1.0.4 — 26/09/2026
 
