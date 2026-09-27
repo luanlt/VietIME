@@ -6,10 +6,10 @@
 
 **Bộ gõ tiếng Việt Telex cho HarmonyOS PC — gõ nhanh như UniKey, chạy hoàn toàn ngoại tuyến.**
 
-[![Version](https://img.shields.io/badge/version-1.0.5-2563eb)](AppScope/app.json5)
+[![Version](https://img.shields.io/badge/version-1.0.8-2563eb)](AppScope/app.json5)
 [![HarmonyOS](https://img.shields.io/badge/HarmonyOS-6.1.0%2B%20(API%2023)-cf0a2c)](build-profile.json5)
 [![ArkTS](https://img.shields.io/badge/ArkTS-ArkUI-7c3aed)](entry/src/main/ets)
-[![Tests](https://img.shields.io/badge/tests-438%20passed-16a34a)](docs/test-results.json)
+[![Tests](https://img.shields.io/badge/tests-516%20passed-16a34a)](docs/test-results.json)
 [![Permissions](https://img.shields.io/badge/permissions-none-0f766e)](PRIVACY.md)
 
 [Tính năng](#-tính-năng) · [Cài đặt](#-cài-đặt--sử-dụng) · [Build](#-build-từ-mã-nguồn) · [Kiến trúc](#-kiến-trúc) · [Giới hạn](#-giới-hạn-đã-biết) · [Tài liệu](#-tài-liệu)
@@ -22,7 +22,7 @@
 
 VietIME là bộ gõ tiếng Việt kiểu **Telex** viết native bằng ArkTS/ArkUI cho **HarmonyOS PC (2in1)**, dùng với bàn phím vật lý. Bộ gõ đăng ký với hệ thống qua `InputMethodExtensionAbility`, không cần quyền hệ thống nào, không kết nối mạng và không lưu lịch sử gõ.
 
-Phiên bản **1.0.5** đã chạy thực tế trên **Huawei MateBook Pro S (MOR-M1), HarmonyOS 6.1.0.135 / API 24**, gõ được trong ứng dụng HarmonyOS native và ứng dụng Android chạy qua EasyAbroad (Zalo, Messenger…).
+Phiên bản **1.0.8** đã chạy thực tế trên **Huawei MateBook Pro S (MOR-M1), HarmonyOS 6.1.0.135 / API 24**, gõ được trong ứng dụng HarmonyOS native và ứng dụng Android chạy qua EasyAbroad (Zalo, Messenger…).
 
 ```text
 tieengs Vieetj  →  tiếng Việt
@@ -38,8 +38,9 @@ project windows →  project windows   (tự nhận diện tiếng Anh)
 | ⌨️ **Telex chuẩn** | `aa/ee/oo → â/ê/ô`, `aw → ă`, `ow → ơ`, `uw/w → ư`, `dd → đ`, dấu `s f r x j`, `z` xóa dấu. |
 | ⚡ **Cảm giác UniKey** | Gõ thẳng vào ô nhập, không gạch chân; dấu được sửa tại chỗ và đặt tự do ở bất kỳ vị trí nào trong từ; `d` ở cuối từ vẫn tạo `đ` (`dinhd → đinh`). |
 | 🔤 **Nhận diện tiếng Anh** | Kiểm tra cấu trúc âm tiết ngay khi gõ (`project`, `class`, `windows`…) cùng danh sách từ giữ nguyên có thể xem, sửa, xóa trong Cài đặt. |
-| 🔁 **Chuyển Việt / Anh** | Nhấn-nhả riêng **Shift** (mặc định), **Alt+Z** hoặc **Ctrl+Space**; bấm biểu tượng Ví/EN trên khay hoặc ô báo nổi. `Esc` trả từ đang gõ về đúng phím đã bấm. |
-| 🏷️ **Chỉ báo trạng thái** | Biểu tượng Ví/EN trên khay hệ thống và ô báo nổi có thể kéo thả. |
+| 🔁 **Chuyển Việt / Anh** | **Alt+Z** (mặc định), nhấn-nhả nhanh riêng **Shift** (giữ Shift để gõ chữ hoa hay Shift+click không chuyển) hoặc **Ctrl+Space**; bấm biểu tượng Ví/EN trên khay hoặc ô báo nổi. `Esc` trả từ đang gõ về đúng phím đã bấm. |
+| 🏷️ **Chỉ báo trạng thái** | Biểu tượng Ví/EN trên khay hệ thống; ô báo nổi kéo thả được (tùy chọn, mặc định tắt — nhấn giữ hoặc chuột phải để ẩn). |
+| 🗂️ **Việt / Anh theo ứng dụng** | Mặc định bật, có sẵn quy tắc: terminal luôn **EN**; văn phòng, trình duyệt, trợ lý AI, EasyAbroad luôn **Ví**. Tự chọn thêm ứng dụng native luôn mở ở Ví hoặc EN. Tự nhớ chế độ cho các ứng dụng còn lại. Mọi ứng dụng Android qua EasyAbroad dùng chung một thiết lập. |
 | 📱 **Ứng dụng Android** | Tự chuyển sang chế độ gõ trực tiếp với editor không hỗ trợ pre-edit (EasyAbroad), chịu được việc báo vị trí con trỏ trễ. |
 | 🔒 **Riêng tư** | Tự bỏ qua ô mật khẩu/PIN/OTP, URL và email; không quyền, không mạng, không telemetry. Xem [PRIVACY.md](PRIVACY.md). |
 | 🔠 **Tự viết hoa** | Viết hoa chữ đầu câu sau `. ! ?` + dấu cách/xuống dòng; tùy chọn viết hoa chữ đầu ô nhập trống. |
@@ -108,9 +109,9 @@ Kết quả build nằm tại `entry/build/default/outputs/default/`. Thông tin
 
 | Bộ test | Số lượng | Phạm vi |
 |---|---:|---|
-| Engine (`tests/engine.test.cjs`) | 355 | Telex, parser âm tiết, corpus, nhận diện tiếng Anh, hành vi UniKey, gõ tắt |
-| Session (`tests/session.test.cjs`) | 83 | Composition session, phím tắt, gõ trực tiếp, con trỏ báo trễ, phím ký hiệu, tự viết hoa (editor giả lập) |
-| **Tổng** | **438** | **0 lỗi** |
+| Engine (`tests/engine.test.cjs`) | 410 | Telex, parser âm tiết, corpus, nhận diện tiếng Anh, hành vi UniKey, gõ tắt |
+| Session (`tests/session.test.cjs`) | 106 | Composition session, phím tắt (Shift tự lặp, giữ Shift lâu), Việt/Anh theo ứng dụng, gõ trực tiếp, con trỏ báo trễ, phím ký hiệu, tự viết hoa (editor giả lập) |
+| **Tổng** | **516** | **0 lỗi** |
 
 Benchmark engine thuần trên Windows: p50 ≈ 0,07 ms, p99 ≈ 0,4 ms mỗi cụm 13 phím — đây **không** phải độ trễ IPC trên HarmonyOS. Chi tiết: [docs/test-results.json](docs/test-results.json).
 
@@ -167,6 +168,40 @@ Thiết kế chi tiết: [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.
 | [PRIVACY.md](PRIVACY.md) | Chính sách quyền riêng tư (Tiếng Việt / English) |
 
 ## 📝 Nhật ký thay đổi
+
+### 1.0.8 — 27/09/2026
+
+- **Gõ liền hai lần phím dấu bỏ dấu như UniKey/OpenKey:** `oss` → `os`, `ass` → `as`, `tieengss` → `tiêngs` (trước đây ra đúng phím thô `oss`). Bỏ dấu giữa từ cũng được: `tesst` → `test`, `cosst` → `cost`.
+- **Từ tiếng Anh có phụ âm đôi vẫn giữ nguyên:** `office`, `error`, `lesson`, `message`, `coffee`; `offfice` → `office`. Phím dấu lặp không liền nhau vẫn giữ phím đã gõ (`tests`, `posts`).
+- **Sửa lỗi `windows` thành `wwindowss`** khi gõ kiểu UniKey (`ww` để bỏ `ư`, `ss` để bỏ dấu): sau `ww` từ vẫn được nhận diện tiếng Anh, `wwindows` → `windows`, `Wwindows` → `Windows` (giữ chữ hoa).
+- Danh sách từ tiếng Anh thêm `boss`, `less`, `miss`, `kiss`, `pass`, `loss`, `toss`, `mass`, `off`, `offline`, `offset`, `password`, `passport` (tự bổ sung một lần vào danh sách đã lưu).
+- Tùy chọn *Gõ lặp phím dấu kiểu UniKey* đổi thành *Luôn bỏ dấu khi gõ lại phím dấu* (BẬT: `tests` → `tets`).
+- 567 test.
+
+### 1.0.7 — 26/09/2026
+
+- **Mới: tự chuyển Việt/Anh theo ứng dụng** (*Cài đặt › Theo ứng dụng*, mặc định tắt). Chọn ứng dụng native luôn mở ở **Ví** hoặc **EN**, từ danh sách ứng dụng gần đây hoặc nhập mã ứng dụng. Chuyển tay bằng phím tắt vẫn được và giữ tới khi sang ứng dụng khác; quay lại ứng dụng thường thì trở về chế độ đang dùng trước đó.
+- Tùy chọn **tự nhớ chế độ cho ứng dụng khác**: ứng dụng chưa chọn mở lại đúng chế độ Ví/EN dùng lần trước trong ứng dụng đó.
+- Ứng dụng Android qua EasyAbroad dùng chung một mã (`com.easy.hmos.abroad`) nên chung một thiết lập.
+- Vẫn không cần quyền hệ thống: danh sách ứng dụng lấy từ các ứng dụng bạn đã gõ (chỉ khi bật tính năng), chỉ lưu mã ứng dụng trên máy.
+- **Quy tắc có sẵn theo loại ứng dụng** (mặc định bật): terminal (HiShell, Hish, TermNext, ứng dụng có `terminal`/`shell`/`ssh` trong mã) luôn **EN**; văn phòng (WPS, Pure Office, Ghi chú, Email), trình duyệt, trợ lý AI (Celia, ChatGPT, DeepSeek…) và ứng dụng Android qua EasyAbroad luôn **Ví**. Quy tắc bạn tự chọn được ưu tiên; tắt được trong *Theo ứng dụng*. Tính năng theo ứng dụng giờ mặc định bật với cài đặt mới.
+- **Phím tắt mặc định chuyển Ví/EN giờ là Alt+Z** (trước là nhấn-nhả Shift). Cài đặt đã lưu từ bản cũ được chuyển sang Alt+Z một lần; vẫn chọn lại được Shift hoặc Ctrl+Space.
+- **Nhận diện tiếng Anh tốt hơn:** vần kết thúc bằng `c ch p t` chỉ nhận dấu sắc/nặng, nên `port`, `sort`, `part`, `chart`, `texts`, `wrap` không còn thành `pỏt`, `tét`…; thêm 35 từ vào danh sách giữ nguyên (`is`, `or`, `if`, `how`, `now`, `data`, `more`, `does`, `OS`, `AWS`…), tự bổ sung một lần vào danh sách đã lưu. Từ tiếng Việt thông dụng vẫn ưu tiên (`this` → thí, `max` → mã, `six` → sĩ).
+- **Mới: tùy chọn "Phím z xóa dấu"** (mặc định bật): tắt đi thì `z` là chữ z bình thường.
+- **Rà soát toàn bộ Cài đặt, sửa các lựa chọn không có tác dụng hoặc chạy sai:**
+  - *Gõ dấu tự do* khi TẮT làm hỏng cả Telex cơ bản (`tieengs`, `vieetj` không thành chữ Việt). Giờ TẮT chỉ nghĩa là dấu phải gõ khi phần đã gõ là âm tiết hợp lệ và `đ` phải gõ `dd` liền; BẬT thêm `viejet` → việt, `dinhd` → đinh.
+  - *Từ tiếng Anh luôn giữ nguyên* bị bỏ qua khi tắt *Tự nhận diện từ tiếng Anh*; giờ luôn áp dụng.
+  - *Đặt dấu kiểu mới* ghi nhãn ngược quy ước (BẬT cho ra hóa, thúy — kiểu cũ): đổi tên thành *Đặt dấu kiểu cũ (hóa, thúy)*, hành vi giữ nguyên.
+  - *Gõ trực tiếp cho ứng dụng không hỗ trợ gạch chân* không có tác dụng khi *Gõ kiểu UniKey* bật (vốn đã gõ trực tiếp): chỉ hiện khi tắt kiểu UniKey. *Viết hoa chữ đầu ô nhập trống* chỉ hiện khi bật *Viết hoa chữ cái đầu câu*.
+  - Trang *Chẩn đoán & thử engine* dùng đúng cài đặt đã lưu (trước dùng mặc định). *Chủ đề* ghi rõ chỉ áp dụng cho trang cài đặt.
+- 516 test.
+
+### 1.0.6 — 26/09/2026
+
+- **Sửa lỗi đang gõ tiếng Việt thì đột ngột chuyển sang tiếng Anh.** Nguyên nhân: khi giữ Shift để gõ chữ hoa rồi nhả phím chữ nhưng còn giữ Shift, HarmonyOS tự lặp lại sự kiện *Shift nhấn*; VietIME coi đó là một lần nhấn Shift mới nên lúc nhả Shift lại chuyển sang EN. Giờ chỉ một lần **nhấn-nhả Shift nhanh (≤ 0,5 giây), không kèm phím nào khác** mới chuyển chế độ; giữ Shift lâu (Shift+click chuột, Shift+cuộn) cũng không chuyển.
+- **Sửa lỗi chế độ bị đảo ngược khi chuyển nhanh hai lần:** thông báo đổi Ví/EN trễ từ hệ thống không còn ghi đè lựa chọn mới nhất; việc đồng bộ biểu tượng khay được xếp hàng tuần tự.
+- **Ẩn ô báo chế độ nổi:** ô Ví/EN nổi giờ **mặc định tắt** và không còn tạo cửa sổ nào khi tắt (hết ô vuông đen nổi trên màn hình). Khi đang bật có thể **nhấn giữ hoặc chuột phải** vào ô để ẩn ngay; bật lại trong *Cài đặt › Chung › Hiện ô báo chế độ nổi*.
+- 444 test.
 
 ### 1.0.5 — 26/09/2026
 

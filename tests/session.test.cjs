@@ -41,8 +41,9 @@ check('editor capability changes within session',()=>{const [s,e]=setup(); s.set
 function direct(input, prefix='', noCursor=false) { const [s,e]=setup(prefix,false); e.noCursor=noCursor; for(const c of input) s.process(c); return [s,e]; }
 check('direct: sentence without pre-edit',()=>{const [s,e]=direct('tieengs Vieetj Nam '); assert.equal(e.text,'tiếng Việt Nam '); assert.equal(e.calls.filter(c=>c[0]==='preview').length,0);});
 check('direct: keeps prefix',()=>{const [s,e]=direct('dduowngf','nhà '); assert.equal(e.text,'nhà đường');});
-check('direct: minimal rewrite',()=>{const [s,e]=direct('ass'); assert.equal(e.text,'ass'); assert.deepEqual(e.calls,[['insert','a'],['delete',1],['insert','á'],['delete',1],['insert','ass']]);});
+check('direct: minimal rewrite',()=>{const [s,e]=direct('ass'); assert.equal(e.text,'as'); assert.deepEqual(e.calls,[['insert','a'],['delete',1],['insert','á'],['delete',1],['insert','as']]);});
 check('direct: English word never garbled',()=>{const [s,e]=direct('project '); assert.equal(e.text,'project '); assert.equal(e.calls.filter(c=>c[0]==='delete').length,0);});
+check('direct: windows typed plainly or with UniKey ww',()=>{const [s,e]=direct('windows Wwindows '); assert.equal(e.text,'windows Windows ');});
 check('direct: restore invalid word at boundary',()=>{const [s,e]=direct('javascript '); assert.equal(e.text,'javascript ');});
 check('direct: backspace inside word',()=>{const [s,e]=direct('tieengs'); assert.equal(s.process('Backspace'),true); assert.equal(e.text,'tiến');});
 check('direct: backspace after word passes through',()=>{const [s,e]=direct('as '); assert.equal(s.process('Backspace'),false); assert.equal(e.text,'á ');});
@@ -100,7 +101,7 @@ check('bridged: backspace inside word',()=>{const [s,e]=bridged('tieengs'); s.pr
 check('bridged: caret stays consistent',()=>{const [s,e]=bridged('ddi ddaau '); assert.equal(e.text,'đi đâu '); s.process('a'); assert.equal(e.text,'đi đâu a');});
 check('bridged: one-letter word at field start repaired on next key',()=>{const [s,e]=bridged('ddi as'); s.commit(); assert.equal(e.text,'đi á');});
 check('bridged: repair skipped when the delete worked',()=>{const s=new CompositionSession(), e=new Editor(); s.attach(e,false,false); s.setMinDelete(2); sys(s,e,'ddi '); assert.equal(e.text,'đi '); assert.deepEqual(e.calls.slice(0,3),[['insert','d'],['delete',1],['insert','đ']]); assert.equal(e.calls.length,5);});
-check('native editors keep minimal deletes',()=>{const [s,e]=direct('ass'); assert.deepEqual(e.calls,[['insert','a'],['delete',1],['insert','á'],['delete',1],['insert','ass']]);});
+check('native editors keep minimal deletes',()=>{const [s,e]=direct('ass'); assert.deepEqual(e.calls,[['insert','a'],['delete',1],['insert','á'],['delete',1],['insert','as']]);});
 // ChatGPT via EasyAbroad after sending: the first caret read returns the old field's caret (20).
 function stale(first=20) { const s=new CompositionSession(), e=new DropEditor(''); const c=e.cursor.bind(e); let reads=0; e.cursor=()=>reads++===0?first:c(); s.attach(e,false,false); s.setMinDelete(2); let t=0; s.now=()=>t; return [s,e,(ms)=>{t+=ms;}]; }
 check('stale first caret: rebased by first selection event, slow typing',()=>{const [s,e,wait]=stale(); s.process('d'); s.selectionChanged(1,1,-1); for(const c of 'di'){ wait(1500); s.process(c); } s.commit(); assert.equal(e.text,'đi');});
@@ -111,10 +112,41 @@ check('Shift tap toggles',()=>{const t=new ShiftTapTracker(); assert.equal(t.upd
 check('Shift+letter (capitals) does not toggle',()=>{const t=new ShiftTapTracker(); t.update(true,true,false,false,false); t.update(true,false,false,false,false); t.update(false,false,false,false,false); assert.equal(t.update(false,true,false,false,false),false);});
 check('Ctrl+Shift does not trigger Shift tap',()=>{const t=new ShiftTapTracker(); t.update(true,false,true,false,false); t.update(true,true,true,false,false); assert.equal(t.update(false,true,true,false,false),false);});
 check('Shift tap after capitals still works',()=>{const t=new ShiftTapTracker(); t.update(true,true,false,false,false); t.update(true,false,false,false,false); t.update(false,true,false,false,false); t.update(true,true,false,false,false); assert.equal(t.update(false,true,false,false,false),true);});
+// Shift held after a capital: HarmonyOS auto-repeats Shift down once the letter is released.
+check('Shift auto-repeat after capital does not toggle',()=>{const t=new ShiftTapTracker(); t.update(true,true,false,false,false,0); t.update(true,false,false,false,false,50); t.update(false,false,false,false,false,120); for(let ms=620;ms<900;ms+=40) t.update(true,true,false,false,false,ms); assert.equal(t.update(false,true,false,false,false,950),false);});
+check('Shift auto-repeat alone keeps tap armed only while short',()=>{const t=new ShiftTapTracker(); t.update(true,true,false,false,false,0); t.update(true,true,false,false,false,300); assert.equal(t.update(false,true,false,false,false,400),true);});
+check('long Shift hold (Shift+click) does not toggle',()=>{const t=new ShiftTapTracker(); t.update(true,true,false,false,false,0); for(let ms=500;ms<1500;ms+=40) t.update(true,true,false,false,false,ms); assert.equal(t.update(false,true,false,false,false,1500),false);});
+check('letter released during Shift hold cancels',()=>{const t=new ShiftTapTracker(); t.update(true,false,false,false,false,0); t.update(true,true,false,false,false,10); t.update(false,false,false,false,false,30); assert.equal(t.update(false,true,false,false,false,80),false);});
+check('Shift tap works after a cancelled hold',()=>{const t=new ShiftTapTracker(); t.update(true,true,false,false,false,0); t.update(true,false,false,false,false,10); t.update(false,true,false,false,false,50); t.update(true,true,false,false,false,2000); assert.equal(t.update(false,true,false,false,false,2100),true);});
+check('focus reset while Shift held does not re-arm on repeat',()=>{const t=new ShiftTapTracker(); t.update(true,true,false,false,false,0); t.reset(); t.update(true,true,false,false,false,600); assert.equal(t.update(false,true,false,false,false,650),false);});
 check('CtrlShift release toggles once',()=>{const s=new ShortcutTracker(); assert.equal(s.update(true,true,true,false,false,false),false); assert.equal(s.update(true,true,true,true,false,false),false); assert.equal(s.update(false,true,true,false,false,false),true); assert.equal(s.update(false,true,false,false,false,false),false);});
 check('CtrlShiftLeft does not toggle',()=>{const s=new ShortcutTracker(); s.update(true,true,true,false,false,false); s.update(true,true,true,true,false,false); s.update(true,false,true,true,false,false); assert.equal(s.update(false,true,true,false,false,false),false);});
 check('typing before chord does not poison later chord',()=>{const s=new ShortcutTracker(); s.update(true,false,false,false,false,false); s.update(false,false,false,false,false,false); s.update(true,true,true,true,false,false); assert.equal(s.update(false,true,false,true,false,false),true);});
 check('Alt CtrlShift does not toggle',()=>{const s=new ShortcutTracker(); s.update(true,true,true,true,true,false); assert.equal(s.update(false,true,true,false,true,false),false);});
+// Per-app Ví / EN.
+const { AppModePolicy, parseAppRule, pushRecent } = require('../.test-build/ime/AppModePolicy.js');
+const VI=InputMode.Vietnamese, EN=InputMode.English;
+function policy(rules, remember=false, enabled=true) { const p=new AppModePolicy(); p.configure(enabled,remember,rules); return p; }
+check('app rule parse',()=>{assert.deepEqual(parseAppRule('com.a.b=EN'),['com.a.b','EN']); assert.deepEqual(parseAppRule('com.a=vi'),['com.a','VI']); assert.deepEqual(parseAppRule('bad app=EN'),[]); assert.deepEqual(parseAppRule('com.a=FR'),[]); assert.deepEqual(parseAppRule('=EN'),[]);});
+check('disabled policy never switches',()=>{const p=policy(['term=EN'],false,false); assert.equal(p.enter('term',VI),undefined);});
+check('rule app switches, other app restores previous mode',()=>{const p=policy(['term=EN']); assert.equal(p.enter('zalo',VI),undefined); assert.equal(p.enter('term',VI),EN); assert.equal(p.enter('zalo',EN),VI);});
+check('focus change inside same app keeps manual toggle',()=>{const p=policy(['term=EN']); p.enter('term',VI); p.toggled(VI); assert.equal(p.enter('term',VI),undefined);});
+check('toggle inside rule app lasts only for that visit',()=>{const p=policy(['term=EN']); p.enter('zalo',VI); p.enter('term',VI); p.toggled(VI); assert.equal(p.enter('zalo',VI),undefined); assert.equal(p.enter('term',VI),EN);});
+check('toggle in normal app becomes shared mode',()=>{const p=policy(['term=EN']); p.enter('a',VI); assert.equal(p.toggled(EN),false); assert.equal(p.enter('term',EN),undefined); p.toggled(VI); assert.equal(p.enter('b',VI),EN);});
+check('remember restores per-app mode',()=>{const p=policy([],true); p.enter('a',VI); assert.equal(p.toggled(EN),true); assert.equal(p.enter('b',EN),undefined); p.toggled(VI); assert.equal(p.enter('a',VI),EN); assert.equal(p.enter('b',EN),VI);});
+check('remembered modes round-trip',()=>{const p=policy([],true); p.setRemembered({a:'EN',b:'VI',c:'x'}); assert.deepEqual(p.getRemembered(),{a:'EN',b:'VI'}); assert.equal(p.enter('a',VI),EN);});
+check('rule beats remembered mode',()=>{const p=policy(['a=VI'],true); p.setRemembered({a:'EN'}); assert.equal(p.enter('a',EN),VI);});
+check('force re-applies rule for same app',()=>{const p=policy(['a=EN']); p.enter('a',VI); p.toggled(VI); assert.equal(p.enter('a',VI,true),EN);});
+check('empty bundle ignored',()=>{const p=policy(['a=EN']); assert.equal(p.enter('',VI),undefined);});
+check('recent apps unique, newest first, bounded',()=>{let l=[]; for(let i=0;i<40;i++) l=pushRecent(l,'app'+i); l=pushRecent(l,'app35'); assert.equal(l.length,30); assert.equal(l[0],'app35'); assert.equal(l.filter(b=>b==='app35').length,1); const same=pushRecent(l,'app35'); assert.equal(same,l);});
+const { presetCategory, presetMode } = require('../.test-build/ime/AppModePolicy.js');
+check('preset categories for installed apps',()=>{for(const [b,c] of [['com.huawei.hmos.hishell','terminal'],['app.hackeris.hish','terminal'],['com.termnext.hos','terminal'],['cn.wps.office.hap','office'],['app.fuqidian.pureoffice','office'],['com.huawei.hmos.browser','browser'],['com.huawei.hmos.vassistant','ai'],['com.easy.hmos.abroad','android'],['com.tencent.wechat.pc',''],['com.huawei.hmos.settings','']]) assert.equal(presetCategory(b),c,b);});
+check('preset categories by bundle words',()=>{for(const [b,c] of [['com.example.sshclient','terminal'],['org.termux','terminal'],['com.openai.chatgpt','ai'],['com.deepseek.chat','ai'],['com.microsoft.edge','browser'],['com.foo.mybrowser','browser'],['com.microsoft.office.word','office'],['com.foo.pdfreader','office'],['com.foo.terminator','']]) assert.equal(presetCategory(b),c,b);});
+check('preset modes: terminal EN, others Ví',()=>{assert.equal(presetMode('com.huawei.hmos.hishell'),EN); assert.equal(presetMode('cn.wps.office.hap'),VI); assert.equal(presetMode('com.easy.hmos.abroad'),VI); assert.equal(presetMode('com.tencent.wechat.pc'),undefined);});
+check('presets switch on enter, user rule wins, presets can be off',()=>{let p=policy([]); assert.equal(p.enter('com.huawei.hmos.hishell',VI),EN); assert.equal(p.enter('com.huawei.hmos.browser',EN),VI);
+  p=policy(['com.huawei.hmos.hishell=VI']); assert.equal(p.enter('com.huawei.hmos.hishell',VI),undefined);
+  p=new AppModePolicy(); p.configure(true,false,[],false); assert.equal(p.enter('com.huawei.hmos.hishell',VI),undefined);});
+check('leaving a preset terminal restores the shared mode',()=>{const p=policy([]); p.enter('zalo',VI); assert.equal(p.enter('com.termnext.hos',VI),EN); assert.equal(p.enter('zalo',EN),VI);});
 module.exports = {tests:tests,passed:tests-failures,failed:failures};
 console.log('Session: ' + JSON.stringify(module.exports));
 if(failures) process.exitCode=1;

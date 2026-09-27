@@ -109,3 +109,13 @@ export function isViablePrefix(letters: string[]): boolean {
   if (onset === 'g' && word.charAt(1) === 'i' && word.length > 2 && viableFrom('gi', word.slice(2))) { return true; }
   return viableFrom(onset, word.slice(start));
 }
+
+// A syllable closed by c, ch, p or t only takes sắc or nặng (tone 1 or 5), so tốt/học but never
+// tẽt: pỏt, texts -> tẽt/tét are English (port, texts).
+export function toneFits(letters: string[], tone: number): boolean {
+  if (tone === 0 || tone === 1 || tone === 5) { return true; }
+  const syllable = parseSyllable(letters);
+  if (syllable.start < 0) { return true; }
+  const coda = letters.slice(syllable.end).join('').toLowerCase();
+  return !['c', 'ch', 'p', 't'].includes(coda);
+}

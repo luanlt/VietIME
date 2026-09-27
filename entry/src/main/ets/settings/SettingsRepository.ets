@@ -1,7 +1,8 @@
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { parseMacro, SettingsModel } from './SettingsModel';
-import { DEFAULT_ENGLISH_WORDS } from '../engine/VietnameseInputEngine';
+import { DEFAULT_ENGLISH_WORDS, ENGLISH_WORDS_V2, ENGLISH_WORDS_V3, ENGLISH_WORDS_VERSION } from '../engine/VietnameseInputEngine';
+import { MAX_APP_RULES, parseAppRule } from '../ime/AppModePolicy';
 
 const NAME: string = 'vietime_settings_v1';
 
@@ -47,20 +48,21 @@ export class SettingsRepository {
       config.enabled = this.bool(values, 'enabled', true);
       config.startVietnamese = this.bool(values, 'startVietnamese', true);
       // Ctrl+Shift is reserved by HarmonyOS PC for switching input methods and never reaches
-      // the IME, so saved Ctrl+Shift (the old default) migrates to a Shift tap.
-      const shortcut = this.str(values, 'shortcut', 'Shift');
-      config.shortcut = ['Shift', 'Alt+Z', 'Ctrl+Space'].includes(shortcut) ? shortcut : 'Shift';
+      // the IME; saved values from before shortcut version 2 (Shift, Ctrl+Shift) migrate to Alt+Z.
+      const shortcut = this.num(values, 'shortcutVersion', 1, 1, 2) < 2 ? 'Alt+Z' : this.str(values, 'shortcut', 'Alt+Z');
+      config.shortcut = ['Shift', 'Alt+Z', 'Ctrl+Space'].includes(shortcut) ? shortcut : 'Alt+Z';
       config.virtualKeyboard = this.bool(values, 'virtualKeyboard', false);
       config.autoShow = this.bool(values, 'autoShow', false);
       config.modernTone = this.bool(values, 'modernTone', true);
       config.freeTyping = this.bool(values, 'freeTyping', true);
+      config.zRemovesTone = this.bool(values, 'zRemovesTone', true);
       config.restoreInvalid = this.bool(values, 'restoreInvalid', true);
       config.passwordVietnamese = this.bool(values, 'passwordVietnamese', false);
       config.autoUrl = this.bool(values, 'autoUrl', true);
       config.autoEmail = this.bool(values, 'autoEmail', true);
       config.directFallback = this.bool(values, 'directFallback', true);
       config.englishDetection = this.bool(values, 'englishDetection', true);
-      config.floatingIndicator = this.bool(values, 'floatingIndicator', true);
+      config.floatingBadge = this.bool(values, 'floatingBadge', false);
       config.uniKeyStyle = this.bool(values, 'uniKeyStyle', true);
       config.uniKeyUndo = this.bool(values, 'uniKeyUndo', false);
       config.englishList = this.englishList(values);
@@ -76,6 +78,12 @@ export class SettingsRepository {
       config.keyboardHeight = this.num(values, 'keyboardHeight', 280, 180, 420);
       config.keyLabelSize = this.num(values, 'keyLabelSize', 20, 14, 32);
       config.excludedBundles = this.str(values, 'excludedBundles', '').slice(0, 2048);
+      config.perAppEnabled = this.bool(values, 'perAppEnabled', true);
+      config.perAppRemember = this.bool(values, 'perAppRemember', false);
+      config.perAppPresets = this.bool(values, 'perAppPresets', true);
+      const rules = values['appRules'];
+      config.appRules = Array.isArray(rules) ? (rules as string[]).filter((r: string): boolean =>
+        typeof r === 'string' && parseAppRule(r).length === 2).slice(0, MAX_APP_RULES) : [];
       return config;
     } catch (error) { throw error as Error; }
   }
@@ -83,7 +91,12 @@ export class SettingsRepository {
   private englishList(values: Record<string, preferences.ValueType>): string[] {
     const stored = values['englishList'];
     if (Array.isArray(stored)) {
-      return (stored as string[]).filter((w: string): boolean => typeof w === 'string' && w.length > 0 && w.length <= 64).slice(0, 500);
+      let list = (stored as string[]).filter((w: string): boolean => typeof w === 'string' && w.length > 0 && w.length <= 64);
+      // Lists saved before version 2 get its new built-in words once; later deletions stick.
+      const version = this.num(values, 'englishListVersion', 1, 1, ENGLISH_WORDS_VERSION);
+      if (version < 2) { list = list.concat(ENGLISH_WORDS_V2.filter((w: string): boolean => !list.includes(w))); }
+      if (version < 3) { list = list.concat(ENGLISH_WORDS_V3.filter((w: string): boolean => !list.includes(w))); }
+      return list.slice(0, 500);
     }
     const extra = this.str(values, 'englishWords', '').split(',').map((w: string): string => w.trim().toLowerCase())
       .filter((w: string): boolean => w.length > 0 && !DEFAULT_ENGLISH_WORDS.includes(w));

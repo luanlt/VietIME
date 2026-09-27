@@ -18,6 +18,11 @@ struct StatusIndicator {
     .backgroundColor(this.mode === 'EN' ? '#23282E' : '#0F6B5C')
     .gesture(GestureGroup(GestureMode.Exclusive,
       PanGesture({ distance: 4 }).onActionStart(() => imeRuntime.startMovingIndicator()),
+      LongPressGesture({ duration: 600 }).onAction(() => imeRuntime.hideIndicator()),
       TapGesture().onAction(() => imeRuntime.toggleMode())))
+    // Right click hides the badge too (Settings > "Hiện ô báo chế độ nổi" turns it back on).
+    .onMouse((event: MouseEvent) => {
+      if (event.button === MouseButton.Right && event.action === MouseAction.Release) { imeRuntime.hideIndicator(); }
+    })
   }
 }

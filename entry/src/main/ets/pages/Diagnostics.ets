@@ -3,6 +3,8 @@ import { inputMethod } from '@kit.IMEKit';
 import { TelexEngine } from '../engine/TelexEngine';
 import { parseSyllable } from '../engine/Syllable';
 import { ImeStatus, StatusBridge } from '../utils/StatusBridge';
+import { common } from '@kit.AbilityKit';
+import { SettingsRepository } from '../settings/SettingsRepository';
 
 @Entry
 @Component
@@ -24,6 +26,11 @@ struct Diagnostics {
   private bridge: StatusBridge = new StatusBridge();
   private engine: TelexEngine = new TelexEngine();
   aboutToAppear(): void {
+    // Try the engine with the saved settings (tone placement, z, word list, macros...).
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      this.engine.configure(SettingsRepository.get(context).load().engineOptions());
+    } catch (error) { /* defaults */ }
     this.bridge.observe((status: ImeStatus): void => {
       this.extension = status.state; this.mode = status.mode; this.client = status.client;
       this.panel = status.panel; this.sampledAt = new Date(status.timestamp).toLocaleTimeString();

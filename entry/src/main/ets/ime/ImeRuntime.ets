@@ -11,11 +11,16 @@ import { InputMode } from '../engine/VietnameseInputEngine';
 import { CompositionSession } from './CompositionSession';
 import { HarmonyEditor } from './HarmonyEditor';
 import { ShiftTapTracker, ShortcutTracker } from './ShortcutTracker';
+import { AppModePolicy, pushRecent } from './AppModePolicy';
+import { AppHistory } from '../settings/AppHistory';
 import { ImeStatus, SettingsSignal, StatusBridge } from '../utils/StatusBridge';
 
 // Subtype ids from input_method_config.json; the system shows the current one (Ví / EN).
 const SUBTYPE_VI: string = 'vi_telex';
 const SUBTYPE_EN: string = 'en';
+const OWN_BUNDLE: string = 'com.vietime.inputmethod';
+// setSubtype events this soon after our own switch request are treated as its echo.
+const SUBTYPE_ECHO_MS: number = 1500;
 const MODIFIER_KEYS: number[] =[KeyCode.KEYCODE_CTRL_LEFT, KeyCode.KEYCODE_CTRL_RIGHT, KeyCode.KEYCODE_SHIFT_LEFT, KeyCode.KEYCODE_SHIFT_RIGHT];
 
 export class ImeRuntime {
@@ -28,6 +33,11 @@ export class ImeRuntime {
   // Alt held state tracked from key events; some editors deliver the Z event without altKey.
   private altHeld: boolean = false;
   private lastToggle: number = 0;
+  private lastSubtypeRequest: number = 0;
+  // Subtype syncs run one at a time so a stale "current subtype" never skips a needed switch.
+  private subtypeQueue: Promise<void> = Promise.resolve();
+  private context: InputMethodExtensionContext | undefined = undefined;
+  private statusCreating: boolean = false;
   private consumed: Set<number> = new Set<number>();
   private config: SettingsModel = new SettingsModel();
   private repository: SettingsRepository | undefined = undefined;
@@ -44,6 +54,10 @@ export class ImeRuntime {
   private settingsTimer: number = -1;
   private sensitive: boolean = true;
   private statusBridge: StatusBridge = new StatusBridge();
+  private appPolicy: AppModePolicy = new AppModePolicy();
+  private appHistory: AppHistory | undefined = undefined;
+  private recentApps: string[] = [];
+  private historyTimer: number = -1;
 
   private onStart = (controller: inputMethodEngine.KeyboardController, client: inputMethodEngine.InputClient): void => {
     this.session.detach(); this.client = client; this.consumed.clear(); this.chord.reset(); this.shiftTap.reset(); this.altHeld = false;
@@ -54,6 +68,7 @@ export class ImeRuntime {
       this.session.attach(new HarmonyEditor(client), this.preEdit(this.attribute), this.shouldBypass());
       this.session.configure(this.config.engineOptions()); this.session.setDirectFallback(this.config.directFallback || this.config.uniKeyStyle);
       this.applyTyping();
+      this.configureAppPolicy(); this.applyAppMode(false);
       this.logEditor('start');
       this.publishState();
     } catch (error) { this.session.detach(); this.fail(error as BusinessError); }
@@ -71,7 +86,13 @@ export class ImeRuntime {
     this.log(`setSubtype ${subtype.id} (mode now ${this.session.getMode()})`);
     if (subtype.id !== SUBTYPE_EN && subtype.id !== SUBTYPE_VI) { return; }
     if (mode === this.session.getMode()) { return; }
+    // Echo of a subtype switch we requested before a newer toggle (Shift, Shift quickly):
+    // it must not undo that toggle. Re-sync the system indicator instead.
+    if (Date.now() - this.lastSubtypeRequest < SUBTYPE_ECHO_MS) {
+      this.log('setSubtype ignored (echo of own switch)'); this.syncSubtype(); return;
+    }
     try { this.session.setMode(mode); } catch (error) { this.fail(error as BusinessError); }
+    this.noteToggle();
     this.publishState();
   };
   private onShow = (): void => { this.wantPanel = true; this.syncPanel(); };
@@ -91,13 +112,18 @@ export class ImeRuntime {
     if (!this.client || !this.panel) { this.log(`key without ${this.client ? 'panel' : 'client'}`); return false; }
     const code: number = event.key.code;
     const modifier = MODIFIER_KEYS.includes(code);
-    if (event.action === keyEvent.Action.CANCEL) { this.chord.reset(); this.consumed.clear(); return false; }
+    if (event.action === keyEvent.Action.CANCEL) { this.chord.reset(); this.shiftTap.reset(); this.consumed.clear(); return false; }
     const down = event.action === keyEvent.Action.DOWN;
     try {
       // Modifier keys only (never text keys): shows whether Ctrl/Shift reach the IME at all.
       if (modifier) { this.log(`modifier ${code} ${down ? 'down' : 'up'} ctrl=${event.ctrlKey} shift=${event.shiftKey}`); }
       const isShift = code === KeyCode.KEYCODE_SHIFT_LEFT || code === KeyCode.KEYCODE_SHIFT_RIGHT;
-      if (code === KeyCode.KEYCODE_ALT_LEFT || code === KeyCode.KEYCODE_ALT_RIGHT) { this.altHeld = down; }
+      const isAlt = code === KeyCode.KEYCODE_ALT_LEFT || code === KeyCode.KEYCODE_ALT_RIGHT;
+      if (isAlt) { this.altHeld = down; this.log(`alt ${down ? 'down' : 'up'} altKey=${event.altKey}`); }
+      // Combos only (code, never the character): shows whether Alt+Z / Ctrl+Space reach the IME.
+      if (!modifier && !isAlt && (event.altKey || this.altHeld || event.ctrlKey)) {
+        this.log(`combo code=${code} ${down ? 'down' : 'up'} alt=${event.altKey}/${this.altHeld} ctrl=${event.ctrlKey}`);
+      }
       const alt = event.altKey || this.altHeld;
       if (this.config.shortcut === 'Shift' && this.shiftTap.update(down, isShift, event.ctrlKey, event.altKey, event.logoKey)) {
         this.toggleMode();
@@ -181,6 +207,11 @@ export class ImeRuntime {
         this.settingsTimer = setTimeout((): void => { this.reloadSettings(); }, 50);
       });
     } catch (error) { this.fail(error as BusinessError); }
+    try {
+      this.appHistory = new AppHistory(context);
+      this.recentApps = this.appHistory.recent(); this.appPolicy.setRemembered(this.appHistory.modes());
+    } catch (error) { this.fail(error as BusinessError); }
+    this.configureAppPolicy();
     this.session.setMode(this.config.startVietnamese ? InputMode.Vietnamese : InputMode.English);
     this.ability.on('inputStart', this.onStart); this.ability.on('inputStop', this.onStop);
     this.ability.on('keyboardShow', this.onShow); this.ability.on('keyboardHide', this.onHide);
@@ -199,9 +230,19 @@ export class ImeRuntime {
         await panel.setUiContent('keyboard/SoftKeyboard');
         if (this.alive) { this.syncPanel(); }
       }).catch((error: BusinessError): void => { this.fail(error); });
+    this.context = context;
+    this.syncIndicator();
+    this.publishState();
+  }
+  // The STATUS_BAR panel exists only while the floating badge is enabled: a created but hidden
+  // panel could still surface as an empty black square on HarmonyOS PC 6.1.
+  private createStatusPanel(): void {
+    const context = this.context;
+    if (!context || this.statusPanel || this.statusCreating) { return; }
+    this.statusCreating = true;
     this.ability.createPanel(context, { type: inputMethodEngine.PanelType.STATUS_BAR })
       .then(async (panel: inputMethodEngine.Panel): Promise<void> => {
-        if (!this.alive) { await this.ability.destroyPanel(panel); return; }
+        if (!this.alive || !this.config.floatingBadge) { await this.ability.destroyPanel(panel); return; }
         this.statusPanel = panel;
         // Size the window before loading content: content laid out in a 0x0 window stayed
         // unpainted (black) on HarmonyOS PC 6.1. Bottom-left above the dock; draggable.
@@ -212,16 +253,34 @@ export class ImeRuntime {
         await panel.setUiContent('keyboard/StatusIndicator');
         // Force a fresh frame every time the window becomes visible.
         panel.on('show', (): void => { AppStorage.setOrCreate('indicatorFrame', Date.now()); this.log('indicator shown'); });
-        if (this.alive) { this.syncIndicator(); }
-      }).catch((error: BusinessError): void => { this.fail(error); });
-    this.publishState();
+      }).catch((error: BusinessError): void => { this.fail(error); })
+      .finally((): void => { this.statusCreating = false; if (this.alive) { this.syncIndicator(); } });
+  }
+  private destroyStatusPanel(): void {
+    const status = this.statusPanel; this.statusPanel = undefined;
+    if (!status) { return; }
+    status.hide().catch((): void => {})
+      .finally((): Promise<void> => this.ability.destroyPanel(status))
+      .catch((error: BusinessError): void => { this.fail(error); });
+  }
+  // Long press / right click on the badge: hide it for good (Settings can turn it back on).
+  hideIndicator(): void {
+    this.config.floatingBadge = false;
+    this.syncIndicator();
+    const repo = this.repository;
+    if (!repo) { return; }
+    try {
+      const saved = repo.load(); saved.floatingBadge = false;
+      repo.save(saved).catch((error: BusinessError): void => { this.fail(error); });
+    } catch (error) { this.fail(error as BusinessError); }
   }
   // Shown while an editor is attached; hiding is delayed so focus changes do not flicker.
   private syncIndicator(): void {
     if (this.indicatorTimer >= 0) { clearTimeout(this.indicatorTimer); this.indicatorTimer = -1; }
+    if (!this.alive || !this.config.floatingBadge) { this.destroyStatusPanel(); return; }
     const panel = this.statusPanel;
-    if (!panel) { return; }
-    if (this.alive && this.config.floatingIndicator && !!this.client) {
+    if (!panel) { this.createStatusPanel(); return; }
+    if (this.alive && this.config.floatingBadge && !!this.client) {
       panel.show().catch((error: BusinessError): void => { this.fail(error); });
       return;
     }
@@ -243,9 +302,9 @@ export class ImeRuntime {
     this.delegate.off('keyEvent', this.onKey); this.delegate.off('selectionChange', this.onSelection);
     this.delegate.off('editorAttributeChanged', this.onAttribute);
     this.repository?.close(); this.onStop();
+    if (this.historyTimer >= 0) { clearTimeout(this.historyTimer); this.historyTimer = -1; this.flushHistory(); }
     if (this.indicatorTimer >= 0) { clearTimeout(this.indicatorTimer); this.indicatorTimer = -1; }
-    const status = this.statusPanel; this.statusPanel = undefined;
-    if (status) { this.ability.destroyPanel(status).catch((error: BusinessError): void => { this.fail(error); }); }
+    this.destroyStatusPanel(); this.context = undefined;
     const panel = this.panel; this.panel = undefined;
     if (panel) { this.panelQueue = this.panelQueue.then((): Promise<void> => this.ability.destroyPanel(panel)).catch((error: BusinessError): void => { this.fail(error); }); }
   }
@@ -274,8 +333,45 @@ export class ImeRuntime {
       this.applyTyping();
       const attr = this.attribute;
       if (attr) { this.session.setPolicy(this.preEdit(attr), this.shouldBypass()); } else { this.session.setBypass(this.shouldBypass()); }
+      // Rules may have changed for the app in use; the UI may also have cleared the history.
+      if (this.appHistory && this.historyTimer < 0) {
+        this.recentApps = this.appHistory.recent(); this.appPolicy.setRemembered(this.appHistory.modes());
+      }
+      this.configureAppPolicy(); this.applyAppMode(true);
       this.syncPanel(); this.publishState(); this.syncIndicator();
     } catch (error) { this.fail(error as BusinessError); }
+  }
+  private configureAppPolicy(): void {
+    this.appPolicy.configure(this.config.perAppEnabled, this.config.perAppRemember, this.config.appRules, this.config.perAppPresets);
+  }
+  // Per-app Ví / EN on focus. Bundle IDs are recorded (Settings > app picker) only while enabled.
+  private applyAppMode(force: boolean): void {
+    if (!this.appPolicy.isEnabled()) { return; }
+    const bundle = this.attribute?.bundleName ?? '';
+    if (bundle.length === 0) { return; }
+    const target = this.appPolicy.enter(bundle, this.session.getMode(), force);
+    if (bundle !== OWN_BUNDLE) {
+      const recent = pushRecent(this.recentApps, bundle);
+      if (recent !== this.recentApps) { this.recentApps = recent; this.saveHistory(); }
+    }
+    if (target === undefined) { return; }
+    this.session.setMode(target);
+    this.log(`app mode -> ${target}`);
+    this.publishState(); this.syncSubtype();
+  }
+  // Manual switch (shortcut, tray, badge): the per-app policy learns it.
+  private noteToggle(): void {
+    if (this.appPolicy.toggled(this.session.getMode())) { this.saveHistory(); }
+  }
+  // Debounced; never on the key path.
+  private saveHistory(): void {
+    if (this.historyTimer >= 0) { clearTimeout(this.historyTimer); }
+    this.historyTimer = setTimeout((): void => { this.historyTimer = -1; this.flushHistory(); }, 2000);
+  }
+  private flushHistory(): void {
+    const history = this.appHistory;
+    if (!history) { return; }
+    history.save(this.recentApps, this.appPolicy.getRemembered()).catch((error: BusinessError): void => { this.fail(error); });
   }
   // Symbols are left to the editor only in native HarmonyOS editors (they support pre-edit).
   // Android apps via EasyAbroad route raw keys to their focused view, not always the text field.
@@ -292,25 +388,30 @@ export class ImeRuntime {
     this.lastToggle = now;
     this.session.setMode(this.session.getMode() === InputMode.Vietnamese ? InputMode.English : InputMode.Vietnamese);
     this.log(`toggle -> ${this.session.getMode()}`);
+    this.noteToggle();
     this.publishState(); this.syncSubtype();
   }
   // Keep the system indicator (Ví / EN) in step with shortcut toggles. Only the current IME
   // may switch its own subtype (API 11+); failures leave typing unaffected.
+  // Serialized, and the wanted subtype is read when the sync runs (latest mode wins).
   private syncSubtype(): void {
-    const wanted = this.session.getMode() === InputMode.English ? SUBTYPE_EN : SUBTYPE_VI;
-    try {
-      const current = inputMethod.getCurrentInputMethodSubtype();
-      this.log(`subtype current=${current?.id} (${current?.name}) wanted=${wanted}`);
-      if (current?.id === wanted) { return; }
-    } catch (error) { this.log(`subtype current failed ${(error as BusinessError).code}`); }
-    inputMethod.getSetting().listCurrentInputMethodSubtype()
-      .then((list: InputMethodSubtype[]): Promise<boolean> | boolean => {
-        const target = list.find((s: InputMethodSubtype): boolean => s.id === wanted);
-        this.log(`subtype list=${list.map((s: InputMethodSubtype): string => s.id).join(',')} target=${target?.id}`);
-        return target ? inputMethod.switchCurrentInputMethodSubtype(target) : false;
-      })
-      .then((ok: boolean): void => { this.log(`subtype switch result=${ok}`); })
-      .catch((error: BusinessError): void => { this.log(`subtype switch error ${error.code} ${error.message}`); });
+    this.subtypeQueue = this.subtypeQueue.then(async (): Promise<void> => {
+      if (!this.alive) { return; }
+      const wanted = this.session.getMode() === InputMode.English ? SUBTYPE_EN : SUBTYPE_VI;
+      try {
+        const current = inputMethod.getCurrentInputMethodSubtype();
+        this.log(`subtype current=${current?.id} (${current?.name}) wanted=${wanted}`);
+        if (current?.id === wanted) { return; }
+      } catch (error) { this.log(`subtype current failed ${(error as BusinessError).code}`); }
+      const list = await inputMethod.getSetting().listCurrentInputMethodSubtype();
+      const target = list.find((s: InputMethodSubtype): boolean => s.id === wanted);
+      this.log(`subtype list=${list.map((s: InputMethodSubtype): string => s.id).join(',')} target=${target?.id}`);
+      if (!target) { return; }
+      this.lastSubtypeRequest = Date.now();
+      const ok = await inputMethod.switchCurrentInputMethodSubtype(target);
+      this.lastSubtypeRequest = Date.now();
+      this.log(`subtype switch result=${ok}`);
+    }).catch((error: BusinessError): void => { this.log(`subtype switch error ${error.code} ${error.message}`); });
   }
   hidePanel(): void { this.hiddenForSession = true; this.syncPanel(); }
   softKey(key: string): void {

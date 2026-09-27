@@ -6,6 +6,8 @@ import { SettingsRepository } from '../settings/SettingsRepository';
 import { DEFAULT_ENGLISH_WORDS } from '../engine/VietnameseInputEngine';
 import { WordListEditor } from './WordListEditor';
 import { MacroEditor } from './MacroEditor';
+import { AppRulesEditor } from './AppRulesEditor';
+import { AppHistory } from '../settings/AppHistory';
 import BuildProfile from 'BuildProfile';
 import { SettingsSignal } from '../utils/StatusBridge';
 
@@ -22,13 +24,28 @@ struct Index {
   @State selectedIme: string = 'Chưa kiểm tra';
   private repository: SettingsRepository | undefined = undefined;
   private saveQueue: Promise<void> = Promise.resolve();
+  @State recentApps: string[] = [];
+  private history: AppHistory | undefined = undefined;
 
   aboutToAppear(): void {
     try {
       const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
       this.repository = SettingsRepository.get(context); this.config = this.repository.load();
+      this.history = new AppHistory(context); this.refreshApps();
       this.status = 'Ngoại tuyến · đã tải cài đặt'; this.applyTheme(); this.refreshIme();
     } catch (error) { this.status = 'Không đọc được cài đặt'; }
+  }
+  // The floating badge can hide itself (long press), so pick up changes made outside this page.
+  onPageShow(): void {
+    try { if (this.repository) { this.config = this.repository.load(); } } catch (error) { this.status = 'Không đọc được cài đặt'; }
+    this.refreshApps();
+  }
+  private refreshApps(): void { this.recentApps = this.history?.recent() ?? []; }
+  private clearApps(): void {
+    const history = this.history;
+    if (!history) { return; }
+    history.clear().then((): void => { this.recentApps = []; SettingsSignal.notify(); this.status = 'Đã xóa danh sách ứng dụng gần đây'; })
+      .catch((error: BusinessError): void => { this.status = `Xóa thất bại (${error.code})`; });
   }
   private refreshIme(): void {
     try { this.selectedIme = inputMethod.getCurrentInputMethod().name; }
@@ -104,13 +121,25 @@ struct Index {
         Row() { Text('Kiểu gõ').layoutWeight(1); Text('Telex').fontColor('#126B60') }.width('100%').padding({ top: 12, bottom: 12 })
         Row() {
           Text('Phím tắt chuyển Việt/Anh').layoutWeight(1)
-          Select([{ value: 'Shift' }, { value: 'Alt+Z' }, { value: 'Ctrl+Space' }]).value(this.config.shortcut)
+          Select([{ value: 'Alt+Z' }, { value: 'Shift' }, { value: 'Ctrl+Space' }]).value(this.config.shortcut)
             .onSelect((index: number, value: string) => { this.config.shortcut = value; this.save(); })
         }.width('100%')
-        Text('Shift: nhấn rồi nhả riêng phím Shift (gõ chữ hoa không bị ảnh hưởng). Ctrl+Shift do HarmonyOS dùng để đổi bộ gõ nên không dùng được. Cũng có thể bấm biểu tượng Ví/EN trên khay hoặc ô báo nổi. Esc trả từ đang gõ về đúng các phím đã bấm.')
+        Text('Mặc định Alt+Z. Shift: nhấn rồi nhả riêng phím Shift (gõ chữ hoa không bị ảnh hưởng). Ctrl+Shift do HarmonyOS dùng để đổi bộ gõ nên không dùng được. Chỉ nhấn-nhả nhanh Shift mới chuyển chế độ; giữ Shift lâu (Shift+click chuột, gõ chữ hoa) không chuyển. Cũng có thể bấm biểu tượng Ví/EN trên khay hoặc ô báo nổi. Esc trả từ đang gõ về đúng các phím đã bấm.')
           .fontSize(12).fontColor($r('sys.color.ohos_id_color_text_secondary')).width('100%').margin({ top: 8 })
         this.switchRow('Khởi động ở chế độ tiếng Việt', 'Áp dụng khi bộ gõ khởi động lại.', this.config.startVietnamese, (v: boolean) => { this.config.startVietnamese = v; this.save(); })
-        this.switchRow('Hiện ô báo chế độ nổi', 'Ô nhỏ Ví / EN ở góc trái màn hình khi đang nhập liệu. Bấm để chuyển chế độ, kéo để di chuyển.', this.config.floatingIndicator, (v: boolean) => { this.config.floatingIndicator = v; this.save(); })
+        this.switchRow('Hiện ô báo chế độ nổi', 'Mặc định TẮT. Ô nhỏ Ví / EN ở góc trái màn hình khi đang nhập liệu: bấm để chuyển chế độ, kéo để di chuyển, nhấn giữ hoặc chuột phải để ẩn.', this.config.floatingBadge, (v: boolean) => { this.config.floatingBadge = v; this.save(); })
+
+        this.section('Theo ứng dụng', 'Tự bật Ví hoặc EN khi chuyển sang từng ứng dụng.')
+        this.switchRow('Tự chuyển Việt/Anh theo ứng dụng', 'BẬT: khi bắt đầu gõ trong ứng dụng đã chọn, VietIME tự chuyển sang Ví hoặc EN. Vẫn chuyển tay được bằng phím tắt; lựa chọn đó giữ tới khi sang ứng dụng khác.', this.config.perAppEnabled, (v: boolean) => { this.config.perAppEnabled = v; this.save(); })
+        if (this.config.perAppEnabled) {
+          this.switchRow('Dùng quy tắc có sẵn theo loại ứng dụng', 'Terminal (HiShell, Hish, TermNext, SSH…) luôn EN. Văn phòng (WPS, Pure Office, Ghi chú, Email), trình duyệt, trợ lý AI và ứng dụng Android qua EasyAbroad luôn Ví. Ứng dụng bạn tự chọn bên dưới được ưu tiên hơn.', this.config.perAppPresets, (v: boolean) => { this.config.perAppPresets = v; this.save(); })
+          this.switchRow('Tự nhớ chế độ cho ứng dụng khác', 'Ứng dụng chưa chọn sẽ mở lại đúng chế độ Ví/EN bạn dùng lần trước trong ứng dụng đó. TẮT: dùng chung chế độ chuyển tay gần nhất.', this.config.perAppRemember, (v: boolean) => { this.config.perAppRemember = v; this.save(); })
+          AppRulesEditor({ items: this.config.appRules, recent: this.recentApps, presets: this.config.perAppPresets,
+            onChanged: (items: string[]): void => { this.config.appRules = items; this.save(); },
+            onRefresh: (): void => this.refreshApps(), onClearRecent: (): void => this.clearApps() })
+          Text('Ứng dụng Android chạy qua EasyAbroad dùng chung một mã (com.easy.hmos.abroad) nên được xem là một ứng dụng. Danh sách gần đây chỉ lưu mã ứng dụng trên máy này, không lưu nội dung gõ.')
+            .fontSize(12).fontColor($r('sys.color.ohos_id_color_text_secondary')).width('100%').margin({ top: 8 })
+        }
 
         this.section('Bàn phím', 'Bàn phím vật lý luôn hoạt động; bàn phím ảo là tùy chọn.')
         this.switchRow('Hiện bàn phím ảo', 'Cho phép bàn phím ảo của VietIME xuất hiện.', this.config.virtualKeyboard, (v: boolean) => { this.config.virtualKeyboard = v; this.save(); })
@@ -119,10 +148,12 @@ struct Index {
 
         this.section('Tiếng Việt', 'Quy tắc âm tiết, đặt dấu và nhận diện từ.')
         this.switchRow('Gõ kiểu UniKey (không gạch chân)', 'BẬT: chữ được ghi thẳng vào ô nhập và sửa dấu tại chỗ như UniKey trên Windows. TẮT: chữ đang gõ được gạch chân tới khi xong từ.', this.config.uniKeyStyle, (v: boolean) => { this.config.uniKeyStyle = v; this.save(); })
-        this.switchRow('Gõ lặp phím dấu kiểu UniKey', 'BẬT: ass → as (bỏ dấu, giữ một phím). TẮT: ass → ass, boss → boss (tiện cho tiếng Anh).', this.config.uniKeyUndo, (v: boolean) => { this.config.uniKeyUndo = v; this.save(); })
-        this.switchRow('Đặt dấu kiểu mới', 'BẬT: hóa, thúy. TẮT: hoá, thuý.', this.config.modernTone, (v: boolean) => { this.config.modernTone = v; this.save(); })
-        this.switchRow('Gõ dấu tự do', 'Cho phép đặt dấu trước khi gõ xong âm tiết.', this.config.freeTyping, (v: boolean) => { this.config.freeTyping = v; this.save(); })
-        this.switchRow('Tự khôi phục từ sai cấu trúc', 'Trả lại đúng phím đã gõ khi kết thúc một từ không phải âm tiết tiếng Việt.', this.config.restoreInvalid, (v: boolean) => { this.config.restoreInvalid = v; this.save(); })
+        this.switchRow('Luôn bỏ dấu khi gõ lại phím dấu', 'Gõ liền hai lần luôn bỏ dấu như UniKey (oss → os). BẬT: gõ lại phím dấu ở cuối từ cũng bỏ dấu (tests → tets). TẮT: giữ từ tiếng Anh (tests, office).', this.config.uniKeyUndo, (v: boolean) => { this.config.uniKeyUndo = v; this.save(); })
+        // Stored as modernTone for saved settings; ON has always meant hóa / thúy (the old placement).
+        this.switchRow('Đặt dấu kiểu cũ (hóa, thúy)', 'BẬT: hóa, khỏe, thúy. TẮT (kiểu mới): hoá, khoẻ, thuý.', this.config.modernTone, (v: boolean) => { this.config.modernTone = v; this.save(); })
+        this.switchRow('Gõ dấu tự do', 'BẬT: gõ dấu ở bất kỳ đâu, kể cả trước khi gõ đủ nguyên âm (viejet → việt) và d cuối từ vẫn thành đ (dinhd → đinh). TẮT: dấu chỉ nhận khi phần đã gõ là âm tiết hợp lệ (vieejt, vieetj), đ phải gõ dd liền nhau.', this.config.freeTyping, (v: boolean) => { this.config.freeTyping = v; this.save(); })
+        this.switchRow('Phím z xóa dấu', 'BẬT: z bỏ dấu thanh của từ đang gõ (toasz → toa). TẮT: z là chữ z bình thường.', this.config.zRemovesTone, (v: boolean) => { this.config.zRemovesTone = v; this.save(); })
+        this.switchRow('Tự khôi phục từ sai cấu trúc', 'Trả lại đúng phím đã gõ khi kết thúc một từ không phải âm tiết tiếng Việt (quyefn → quyefn thay vì quyèn).', this.config.restoreInvalid, (v: boolean) => { this.config.restoreInvalid = v; this.save(); })
         this.switchRow('Tự nhận diện từ tiếng Anh', 'Giữ nguyên từ không thể là tiếng Việt ngay khi gõ (project, class, windows). Gõ lặp phím dấu để giữ nguyên: boss, tests.', this.config.englishDetection, (v: boolean) => { this.config.englishDetection = v; this.save(); })
         Text('Từ tiếng Anh luôn giữ nguyên').fontSize(16).fontColor($r('sys.color.ohos_id_color_text_primary')).width('100%').margin({ top: 8 })
         Text('Dành cho từ tiếng Anh trùng cách gõ tiếng Việt (test → tét). Chỉ áp dụng khi kết thúc từ.').fontSize(12)
@@ -136,7 +167,10 @@ struct Index {
 
         this.section('Tính năng nâng cao', 'Tự viết hoa, gõ tắt và cách xử lý phím ký hiệu.')
         this.switchRow('Viết hoa chữ cái đầu câu', 'Tự viết hoa chữ đầu tiên sau dấu . ! ? rồi dấu cách hoặc xuống dòng. Chỉ áp dụng khi gõ tiếng Việt.', this.config.autoCapitalize, (v: boolean) => { this.config.autoCapitalize = v; this.save(); })
-        this.switchRow('Viết hoa chữ đầu ô nhập trống', 'Viết hoa chữ đầu tiên khi con trỏ ở đầu ô nhập. Nên TẮT nếu hay gõ trong Excel hoặc ô tìm kiếm.', this.config.capitalizeFieldStart, (v: boolean) => { this.config.capitalizeFieldStart = v; this.save(); })
+        // Field-start capitals are part of auto-capitalization and do nothing without it.
+        if (this.config.autoCapitalize) {
+          this.switchRow('Viết hoa chữ đầu ô nhập trống', 'Viết hoa chữ đầu tiên khi con trỏ ở đầu ô nhập. Nên TẮT nếu hay gõ trong Excel hoặc ô tìm kiếm.', this.config.capitalizeFieldStart, (v: boolean) => { this.config.capitalizeFieldStart = v; this.save(); })
+        }
         this.switchRow('Để hệ thống gõ số và ký hiệu', 'BẬT: ở ứng dụng HarmonyOS, phím số và ký hiệu (= - [ ] ; …) do hệ thống xử lý như khi dùng bàn phím Celia, tránh lỗi = thành +. Ứng dụng Android (EasyAbroad) luôn do VietIME ghi. TẮT: VietIME tự ghi ký tự ở mọi ứng dụng.', this.config.nativeSymbols, (v: boolean) => { this.config.nativeSymbols = v; this.save(); })
         this.switchRow('Gõ tắt', 'Thay từ viết tắt bằng cụm từ đầy đủ khi kết thúc từ: vn → Việt Nam, Vn → Việt Nam, KO → KHÔNG.', this.config.macroEnabled, (v: boolean) => { this.config.macroEnabled = v; this.save(); })
         MacroEditor({ items: this.config.macros, onChanged: (items: string[]): void => { this.config.macros = items; this.save(); } })
@@ -146,7 +180,10 @@ struct Index {
         this.switchRow('Gõ tiếng Việt trong ô mật khẩu', 'Mặc định TẮT. Nội dung ô nhạy cảm không bao giờ hiện trong trang chẩn đoán.', this.config.passwordVietnamese, (v: boolean) => { this.config.passwordVietnamese = v; this.save(); })
         this.switchRow('Tự chuyển tiếng Anh cho địa chỉ web', 'Dựa vào loại ô nhập và tiền tố như http:. Với văn bản khó đoán hãy chuyển sang EN.', this.config.autoUrl, (v: boolean) => { this.config.autoUrl = v; this.save(); })
         this.switchRow('Tự chuyển tiếng Anh cho email', 'Bỏ qua ô nhập email và giữ nguyên từ khi gặp @.', this.config.autoEmail, (v: boolean) => { this.config.autoEmail = v; this.save(); })
-        this.switchRow('Gõ trực tiếp cho ứng dụng không hỗ trợ gạch chân', 'Dành cho ứng dụng Android (EasyAbroad) như Zalo: xóa và ghi lại phần chữ đang gõ.', this.config.directFallback, (v: boolean) => { this.config.directFallback = v; this.save(); })
+        // UniKey style already types directly everywhere, so the fallback only matters without it.
+        if (!this.config.uniKeyStyle) {
+          this.switchRow('Gõ trực tiếp cho ứng dụng không hỗ trợ gạch chân', 'Dành cho ứng dụng Android (EasyAbroad) như Zalo: xóa và ghi lại phần chữ đang gõ. TẮT: các ứng dụng đó nhận phím gốc, không có dấu.', this.config.directFallback, (v: boolean) => { this.config.directFallback = v; this.save(); })
+        }
         Text('Ứng dụng bỏ qua (luôn gõ tiếng Anh)').fontSize(16).fontColor($r('sys.color.ohos_id_color_text_primary')).width('100%').margin({ top: 12 })
         Text('Mã ứng dụng (bundle ID), ví dụ terminal hoặc trình soạn code.').fontSize(12)
           .fontColor($r('sys.color.ohos_id_color_text_secondary')).width('100%').margin({ bottom: 8 })
@@ -155,7 +192,7 @@ struct Index {
 
         this.section('Giao diện', 'Tùy chỉnh hiển thị.')
         Row() {
-          Text('Chủ đề').layoutWeight(1)
+          Text('Chủ đề trang cài đặt').layoutWeight(1)
           Select([{ value: THEME_LABELS[0] }, { value: THEME_LABELS[1] }, { value: THEME_LABELS[2] }])
             .value(THEME_LABELS[Math.max(0, THEMES.indexOf(this.config.theme))])
             .onSelect((index: number) => { this.config.theme = THEMES[index]; this.applyTheme(); this.save(); })

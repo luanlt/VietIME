@@ -21,7 +21,7 @@ Với vai trò bộ gõ hệ thống, VietIME nhận phím bạn nhấn để ch
 
 ## Dữ liệu được lưu trên thiết bị
 
-Chỉ lưu **cài đặt** do bạn chọn, trong bộ nhớ riêng của ứng dụng: bật/tắt tiếng Việt, phím tắt, kiểu đặt dấu, tùy chọn giao diện, danh sách từ tiếng Anh giữ nguyên và danh sách ứng dụng bỏ qua do bạn tự nhập. Gỡ ứng dụng sẽ xóa toàn bộ dữ liệu này.
+Chỉ lưu **cài đặt** do bạn chọn, trong bộ nhớ riêng của ứng dụng: bật/tắt tiếng Việt, phím tắt, kiểu đặt dấu, tùy chọn giao diện, danh sách từ tiếng Anh giữ nguyên, danh sách ứng dụng bỏ qua và danh sách ứng dụng luôn Ví/EN do bạn tự chọn. Khi bạn bật *Tự chuyển Việt/Anh theo ứng dụng*, VietIME lưu thêm **mã ứng dụng** (bundle ID) của tối đa 30 ứng dụng gần đây bạn đã gõ và chế độ Ví/EN đã dùng ở đó, để bạn chọn trong Cài đặt; không lưu nội dung gõ, có thể xóa bằng nút *Xóa danh sách*. Gỡ ứng dụng sẽ xóa toàn bộ dữ liệu này.
 
 ## Chẩn đoán
 
@@ -46,6 +46,6 @@ VietIME is a Vietnamese input method that runs **entirely on the device**. It ha
 - **Permissions:** none. No Internet, microphone, contacts, location, storage or clipboard access; no analytics, ads, telemetry or cloud services.
 - **Keystrokes:** processed only in memory to convert Telex input into Vietnamese text; the current word (max 128 characters) is discarded when the word ends, the field loses focus or the keyboard closes. No typing history is kept.
 - **Password fields:** password, PIN, OTP and lock-screen fields are bypassed by default.
-- **Stored data:** only the settings you choose (mode, shortcut, tone style, display options, your English word list and excluded apps), kept in the app's private storage and removed on uninstall.
+- **Stored data:** only the settings you choose (mode, shortcut, tone style, display options, your English word list, excluded apps and per-app Ví/EN choices; when per-app switching is on, also the bundle IDs of up to 30 recently used apps and the mode last used there, never typed text), kept in the app's private storage and removed on uninstall.
 - **Diagnostics:** an in-app status page shows technical state on request only; nothing is written to files or sent off the device. Release builds log only technical error codes and system error messages, never typed text.
 - **Contact:** Lai Thanh Luan — v.luanlt@gmail.com — +84 961 722 886.

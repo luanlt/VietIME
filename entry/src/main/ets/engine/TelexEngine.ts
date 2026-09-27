@@ -1,9 +1,12 @@
 import { EngineOptions, EngineResult, InputMode, VietnameseInputEngine } from './VietnameseInputEngine';
-import { isViablePrefix, isVowel, parseSyllable, stripTone, toneChar, toneIndex, withCase } from './Syllable';
+import { isViablePrefix, isVowel, parseSyllable, stripTone, toneChar, toneFits, toneIndex, withCase } from './Syllable';
 
 export class TelexEngine implements VietnameseInputEngine {
   private letters: string[] = [];
   private raw: string = '';
+  // Keys as typed minus the keys spent undoing a modifier (ww -> w, aaa -> aa): the text a
+  // token falls back to when it turns out to be English (wwindows -> windows, not wwindows).
+  private plain: string = '';
   private tone: number = 0;
   private mode: InputMode = InputMode.Vietnamese;
   private literal: boolean = false;
@@ -12,6 +15,10 @@ export class TelexEngine implements VietnameseInputEngine {
   private beforeModifier: string[] = [];
   // Tone key swallowed once after a repeated-tone restore: UniKey habit off+f -> off, not offf.
   private absorb: string = '';
+  // Tone key just undone by a double press (oss -> os); the token keeps no further Telex rules.
+  private undone: string = '';
+  // Letters typed after the undone pair (tess + t), kept without Telex rules.
+  private undoneMore: boolean = false;
   private options: EngineOptions;
 
   constructor(options: EngineOptions = new EngineOptions()) { this.options = options; }
@@ -20,8 +27,8 @@ export class TelexEngine implements VietnameseInputEngine {
   getMode(): InputMode { return this.mode; }
   getRaw(): string { return this.raw; }
   reset(): void {
-    this.letters = []; this.raw = ''; this.tone = 0; this.literal = false; this.escaped = false;
-    this.lastModifier = ''; this.beforeModifier = []; this.absorb = '';
+    this.letters = []; this.raw = ''; this.plain = ''; this.tone = 0; this.literal = false; this.escaped = false;
+    this.lastModifier = ''; this.beforeModifier = []; this.absorb = ''; this.undone = ''; this.undoneMore = false;
   }
   // Inside a word (composing or a literal English token), where auto-capitalization never applies.
   inWord(): boolean { return this.raw.length > 0 || this.literal; }
@@ -32,10 +39,18 @@ export class TelexEngine implements VietnameseInputEngine {
   finish(): string {
     const macro = this.expandMacro();
     if (macro !== undefined) { this.reset(); return macro; }
+    if (this.undone !== '') {
+      // Listed words with a doubled tone letter stay English (boss, off, offline); others as UniKey (os, test).
+      const list = this.options.englishWords;
+      const word = list.includes(this.raw.toLowerCase()) ? this.raw : (list.includes(this.plain.toLowerCase()) ? this.plain : this.letters.join(''));
+      this.reset(); return word;
+    }
     const preserve = this.escaped || this.letters.join('').toLowerCase() === 'đ';
     // Listed English words are checked only at the word end so prefixes like meet(j) -> mệt still work.
-    const english = this.options.englishDetection && this.options.englishWords.includes(this.raw.toLowerCase());
-    const result = english || (this.options.restoreInvalid && !preserve && !parseSyllable(this.letters).valid) ? this.raw : this.getComposition();
+    // The list applies even with detection off: the user asked for these words explicitly.
+    const english = this.options.englishWords.includes(this.raw.toLowerCase());
+    const invalid = !parseSyllable(this.letters).valid || !toneFits(this.letters, this.tone);
+    const result = english || (this.options.restoreInvalid && !preserve && invalid) ? this.raw : this.getComposition();
     this.reset();
     return result;
   }
@@ -57,8 +72,11 @@ export class TelexEngine implements VietnameseInputEngine {
   }
   private applyModifier(key: string): boolean {
     if (key !== '' && key === this.lastModifier) {
+      // Undoing the w shorthand (Ww -> W) keeps the case of the ư it replaces.
+      const added = this.letters.length > this.beforeModifier.length ? this.letters[this.letters.length - 1] : '';
       this.letters = this.beforeModifier.slice();
-      this.letters.push(withCase(this.raw.charAt(this.raw.length - 1), key));
+      this.letters.push(withCase(added !== '' ? added : this.raw.charAt(this.raw.length - 1), key));
+      this.plain = this.plain.slice(0, this.plain.length - 1);
       this.lastModifier = ''; this.beforeModifier = [];
       this.escaped = true;
       return true;
@@ -69,7 +87,7 @@ export class TelexEngine implements VietnameseInputEngine {
     if (key === 'd') {
       // UniKey-style: d anywhere in the word turns a leading d into đ (dinhd -> đinh).
       const rest = this.letters.slice(1);
-      if (this.letters.length >= 1 && this.letters[0].toLowerCase() === 'd' &&
+      if (this.letters.length >= 1 && (this.options.freeTyping || this.letters.length === 1) && this.letters[0].toLowerCase() === 'd' &&
         (rest.length === 0 || isViablePrefix(['đ'].concat(rest)))) {
         this.letters[0] = withCase(this.letters[0], 'đ'); changed = true;
       }
@@ -112,7 +130,7 @@ export class TelexEngine implements VietnameseInputEngine {
       if (this.letters.length === 0) { return new EngineResult('', '', false); }
       this.letters.pop();
       if (!this.letters.some((char: string): boolean => isVowel(char))) { this.tone = 0; }
-      this.raw = this.getComposition(); this.lastModifier = ''; this.beforeModifier = [];
+      this.raw = this.getComposition(); this.plain = this.raw; this.lastModifier = ''; this.beforeModifier = []; this.undone = ''; this.undoneMore = false;
       return new EngineResult(this.getComposition());
     }
     if (key === 'Escape') {
@@ -139,8 +157,17 @@ export class TelexEngine implements VietnameseInputEngine {
       this.reset(); this.literal = technical;
       return new EngineResult('', text + key, true, !space);
     }
-    this.raw += key;
+    this.raw += key; this.plain += key;
     const lower = key.toLowerCase();
+    if (this.undone !== '') {
+      // A third press types the key again (osss -> oss) and is dropped from an English word (offfice).
+      if (!this.undoneMore && lower === this.undone) { this.letters.push(key); this.plain = this.plain.slice(0, this.plain.length - 1); return new EngineResult(this.getComposition()); }
+      // A vowel right after the pair is an English doubled consonant (office, error, message); a consonant
+      // is the UniKey habit of removing a tone mid-word (tess+t -> test), the letters are kept as typed.
+      if (!this.undoneMore && isVowel(lower)) { return this.toLiteral(this.plain); }
+      this.undoneMore = true; this.letters.push(key);
+      return new EngineResult(this.getComposition());
+    }
     const tone = 'sfrxj'.indexOf(lower) + 1;
     const syllable = parseSyllable(this.letters);
     if (tone > 0 && syllable.start >= 0 && (this.options.freeTyping || syllable.valid)) {
@@ -148,18 +175,26 @@ export class TelexEngine implements VietnameseInputEngine {
         // UniKey: a repeated tone key removes the tone and types the key itself (ass -> as).
         this.tone = 0; return this.toLiteral(this.getComposition() + key);
       }
-      // A repeated tone key means "not Vietnamese": give back exactly what was typed (boss, tests).
-      // A third press right after is the UniKey habit of "remove the tone": swallow it (offf -> off).
+      // Pressed twice in a row, like UniKey/OpenKey: remove the tone and keep one key (oss -> os).
+      // The token then waits: more letters mean an English word (office, error), see `undone`.
+      if (this.options.englishDetection && this.tone === tone && this.raw.charAt(this.raw.length - 2).toLowerCase() === lower) {
+        this.tone = 0; this.letters.push(key); this.undone = lower; this.lastModifier = ''; this.beforeModifier = [];
+        return new EngineResult(this.getComposition());
+      }
+      // A tone key repeated later in the word means "not Vietnamese": give back what was typed (tests).
+      // A third press right after is the UniKey habit of "remove the tone": swallow it.
       if (this.options.englishDetection && this.tone === tone) {
-        const result = this.toLiteral(this.raw); this.absorb = lower; return result;
+        const result = this.toLiteral(this.plain); this.absorb = lower; return result;
       }
       this.tone = this.tone === tone ? 0 : tone;
       this.lastModifier = ''; return this.checked();
     }
-    if (lower === 'z' && this.tone !== 0) {
+    if (lower === 'z' && this.tone !== 0 && this.options.zRemovesTone) {
       this.tone = 0; this.lastModifier = ''; return this.checked();
     }
-    if ('adeow'.includes(lower) && (this.options.freeTyping || syllable.valid || this.letters.length === 1) && this.applyModifier(lower)) {
+    // Modifiers only need a syllable that can still be completed (tie + e -> tiê); free typing
+    // additionally allows a late d (dinhd -> đinh) and tone keys on unfinished syllables.
+    if ('adeow'.includes(lower) && (this.options.freeTyping || isViablePrefix(this.letters)) && this.applyModifier(lower)) {
       return this.checked();
     }
     this.lastModifier = ''; this.beforeModifier = [];
@@ -172,11 +207,12 @@ export class TelexEngine implements VietnameseInputEngine {
     return this.checked();
   }
   // English detection: once the token cannot be Vietnamese,
-  // emit the raw keys and keep the rest of the token literal until whitespace.
+  // emit the typed keys and keep the rest of the token literal until whitespace.
+  // Escaped tokens are checked too: ww + indows is English, never w + índow (UniKey habit ww, ss).
   private checked(): EngineResult {
-    if (this.options.englishDetection && !this.escaped &&
-      !isViablePrefix(this.letters) && !this.macroPrefix()) {
-      return this.toLiteral(this.raw);
+    if (this.options.englishDetection &&
+      (!isViablePrefix(this.letters) || !toneFits(this.letters, this.tone)) && !this.macroPrefix()) {
+      return this.toLiteral(this.plain);
     }
     return new EngineResult(this.getComposition());
   }
