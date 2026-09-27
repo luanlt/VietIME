@@ -1,5 +1,5 @@
 import { EngineOptions, EngineResult, InputMode, VietnameseInputEngine } from './VietnameseInputEngine';
-import { isViablePrefix, isVowel, parseSyllable, stripTone, toneChar, toneFits, toneIndex, withCase } from './Syllable';
+import { isViablePrefix, isVowel, parseSyllable, promoteCircumflex, stripTone, toneChar, toneFits, toneIndex, withCase } from './Syllable';
 
 export class TelexEngine implements VietnameseInputEngine {
   private letters: string[] = [];
@@ -32,9 +32,12 @@ export class TelexEngine implements VietnameseInputEngine {
   }
   // Inside a word (composing or a literal English token), where auto-capitalization never applies.
   inWord(): boolean { return this.raw.length > 0 || this.literal; }
+  // Letters as shown: a tone mark implies the circumflex of ie/uo (vietj -> việt, muons -> muốn).
+  private shaped(): string[] { return this.tone !== 0 ? promoteCircumflex(this.letters) : this.letters; }
   getComposition(): string {
-    const at = toneIndex(this.letters, this.options.modernTone);
-    return this.letters.map((char: string, index: number): string => index === at ? toneChar(char, this.tone) : char).join('');
+    const letters = this.shaped();
+    const at = toneIndex(letters, this.options.modernTone);
+    return letters.map((char: string, index: number): string => index === at ? toneChar(char, this.tone) : char).join('');
   }
   finish(): string {
     const macro = this.expandMacro();
@@ -49,7 +52,7 @@ export class TelexEngine implements VietnameseInputEngine {
     // Listed English words are checked only at the word end so prefixes like meet(j) -> mệt still work.
     // The list applies even with detection off: the user asked for these words explicitly.
     const english = this.options.englishWords.includes(this.raw.toLowerCase());
-    const invalid = !parseSyllable(this.letters).valid || !toneFits(this.letters, this.tone);
+    const invalid = !parseSyllable(this.shaped()).valid || !toneFits(this.letters, this.tone);
     const result = english || (this.options.restoreInvalid && !preserve && invalid) ? this.raw : this.getComposition();
     this.reset();
     return result;
@@ -169,7 +172,8 @@ export class TelexEngine implements VietnameseInputEngine {
       return new EngineResult(this.getComposition());
     }
     const tone = 'sfrxj'.indexOf(lower) + 1;
-    const syllable = parseSyllable(this.letters);
+    // Validity as the tone would render it: vietj is việt even with free typing off.
+    const syllable = parseSyllable(promoteCircumflex(this.letters));
     if (tone > 0 && syllable.start >= 0 && (this.options.freeTyping || syllable.valid)) {
       if (this.tone === tone && this.options.uniKeyUndo) {
         // UniKey: a repeated tone key removes the tone and types the key itself (ass -> as).
@@ -190,7 +194,8 @@ export class TelexEngine implements VietnameseInputEngine {
       this.lastModifier = ''; return this.checked();
     }
     if (lower === 'z' && this.tone !== 0 && this.options.zRemovesTone) {
-      this.tone = 0; this.lastModifier = ''; return this.checked();
+      // z removes only the tone: an implied circumflex stays (vietjz -> viêt, like vieetjz).
+      this.letters = this.shaped(); this.tone = 0; this.lastModifier = ''; return this.checked();
     }
     // Modifiers only need a syllable that can still be completed (tie + e -> tiê); free typing
     // additionally allows a late d (dinhd -> đinh) and tone keys on unfinished syllables.

@@ -1,7 +1,7 @@
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { parseMacro, SettingsModel } from './SettingsModel';
-import { DEFAULT_ENGLISH_WORDS, ENGLISH_WORDS_V2, ENGLISH_WORDS_V3, ENGLISH_WORDS_VERSION } from '../engine/VietnameseInputEngine';
+import { DEFAULT_ENGLISH_WORDS, ENGLISH_WORDS_V2, ENGLISH_WORDS_V3, ENGLISH_WORDS_V4, ENGLISH_WORDS_VERSION } from '../engine/VietnameseInputEngine';
 import { MAX_APP_RULES, parseAppRule } from '../ime/AppModePolicy';
 
 const NAME: string = 'vietime_settings_v1';
@@ -96,6 +96,7 @@ export class SettingsRepository {
       const version = this.num(values, 'englishListVersion', 1, 1, ENGLISH_WORDS_VERSION);
       if (version < 2) { list = list.concat(ENGLISH_WORDS_V2.filter((w: string): boolean => !list.includes(w))); }
       if (version < 3) { list = list.concat(ENGLISH_WORDS_V3.filter((w: string): boolean => !list.includes(w))); }
+      if (version < 4) { list = list.concat(ENGLISH_WORDS_V4.filter((w: string): boolean => !list.includes(w))); }
       return list.slice(0, 500);
     }
     const extra = this.str(values, 'englishWords', '').split(',').map((w: string): string => w.trim().toLowerCase())

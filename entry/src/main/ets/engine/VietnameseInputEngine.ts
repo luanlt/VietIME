@@ -11,9 +11,11 @@ export const ENGLISH_WORDS_V2: string[] = ['is', 'us', 'or', 'if', 'her', 'per',
 // Version 3: words ending in a doubled tone letter, kept English although ss/ff/rr now undo the tone (oss -> os).
 export const ENGLISH_WORDS_V3: string[] = ['boss', 'less', 'miss', 'kiss', 'pass', 'loss', 'toss', 'mass', 'off',
   'offline', 'offset', 'password', 'passport'];
-export const ENGLISH_WORDS_VERSION: number = 3;
+// Version 4: words that the implied circumflex would turn Vietnamese (diets -> diết, quiets -> quiết).
+export const ENGLISH_WORDS_V4: string[] = ['diets', 'quiets'];
+export const ENGLISH_WORDS_VERSION: number = 4;
 export const DEFAULT_ENGLISH_WORDS: string[] = ['test', 'text', 'next', 'taxi', 'box', 'cost', 'post', 'most',
-  'yes', 'bye', 'user', 'meet', 'keep', 'deep', 'boot', 'root'].concat(ENGLISH_WORDS_V2, ENGLISH_WORDS_V3);
+  'yes', 'bye', 'user', 'meet', 'keep', 'deep', 'boot', 'root'].concat(ENGLISH_WORDS_V2, ENGLISH_WORDS_V3, ENGLISH_WORDS_V4);
 
 export class EngineOptions {
   modernTone: boolean = true;

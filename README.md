@@ -6,10 +6,10 @@
 
 **Bộ gõ tiếng Việt Telex cho HarmonyOS PC — gõ nhanh như UniKey, chạy hoàn toàn ngoại tuyến.**
 
-[![Version](https://img.shields.io/badge/version-1.0.8-2563eb)](AppScope/app.json5)
+[![Version](https://img.shields.io/badge/version-1.0.9-2563eb)](AppScope/app.json5)
 [![HarmonyOS](https://img.shields.io/badge/HarmonyOS-6.1.0%2B%20(API%2023)-cf0a2c)](build-profile.json5)
 [![ArkTS](https://img.shields.io/badge/ArkTS-ArkUI-7c3aed)](entry/src/main/ets)
-[![Tests](https://img.shields.io/badge/tests-516%20passed-16a34a)](docs/test-results.json)
+[![Tests](https://img.shields.io/badge/tests-613%20passed-16a34a)](docs/test-results.json)
 [![Permissions](https://img.shields.io/badge/permissions-none-0f766e)](PRIVACY.md)
 
 [Tính năng](#-tính-năng) · [Cài đặt](#-cài-đặt--sử-dụng) · [Build](#-build-từ-mã-nguồn) · [Kiến trúc](#-kiến-trúc) · [Giới hạn](#-giới-hạn-đã-biết) · [Tài liệu](#-tài-liệu)
@@ -109,8 +109,8 @@ Kết quả build nằm tại `entry/build/default/outputs/default/`. Thông tin
 
 | Bộ test | Số lượng | Phạm vi |
 |---|---:|---|
-| Engine (`tests/engine.test.cjs`) | 410 | Telex, parser âm tiết, corpus, nhận diện tiếng Anh, hành vi UniKey, gõ tắt |
-| Session (`tests/session.test.cjs`) | 106 | Composition session, phím tắt (Shift tự lặp, giữ Shift lâu), Việt/Anh theo ứng dụng, gõ trực tiếp, con trỏ báo trễ, phím ký hiệu, tự viết hoa (editor giả lập) |
+| Engine (`tests/engine.test.cjs`) | 506 | Telex, parser âm tiết, tự thêm dấu mũ, corpus, nhận diện tiếng Anh, hành vi UniKey, gõ tắt |
+| Session (`tests/session.test.cjs`) | 107 | Composition session, phím tắt (Shift tự lặp, giữ Shift lâu), Việt/Anh theo ứng dụng, gõ trực tiếp, con trỏ báo trễ, phím ký hiệu, tự viết hoa (editor giả lập) |
 | **Tổng** | **516** | **0 lỗi** |
 
 Benchmark engine thuần trên Windows: p50 ≈ 0,07 ms, p99 ≈ 0,4 ms mỗi cụm 13 phím — đây **không** phải độ trễ IPC trên HarmonyOS. Chi tiết: [docs/test-results.json](docs/test-results.json).
@@ -168,6 +168,13 @@ Thiết kế chi tiết: [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.
 | [PRIVACY.md](PRIVACY.md) | Chính sách quyền riêng tư (Tiếng Việt / English) |
 
 ## 📝 Nhật ký thay đổi
+
+### 1.0.9 — 27/09/2026
+
+- **Tự thêm dấu mũ khi gõ dấu thanh** (học từ GoTiengViet): không cần gõ `ee`/`oo` cho các vần `iê`, `yê`, `uyê`, `uô`: `vietj` → việt, `tiengs` → tiếng, `muons` → muốn, `tuoir` → tuổi, `chuyenr` → chuyển, `giengs` → giếng. Sửa lỗi `muons` ra `muón`.
+- Chỉ áp dụng khi từ có dấu thanh, nên `tieng`, `viet`, `quiet` không dấu vẫn giữ nguyên. Gõ lại phím dấu trả lại đúng phím đã gõ (`vietjj` → `vietj`); `z` chỉ xóa dấu thanh (`vietjz` → `viêt`).
+- Danh sách từ tiếng Anh thêm `diets`, `quiets` (tự bổ sung một lần vào danh sách đã lưu).
+- 613 test.
 
 ### 1.0.8 — 27/09/2026
 

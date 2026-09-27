@@ -1,15 +1,15 @@
 {
-  "checked": "2026-09-27T08:18:24.624Z",
+  "checked": "2026-09-27T09:14:07.317Z",
   "engine": {
-    "tests": 460,
-    "passed": 460,
+    "tests": 506,
+    "passed": 506,
     "failed": 0,
     "benchmark": {
       "host": "win32",
       "scope": "pure engine, 13-key phrase, not HarmonyOS IPC",
-      "p50_ms": 0.04218699969351292,
-      "p95_ms": 0.12015599990263581,
-      "p99_ms": 0.22093699965626
+      "p50_ms": 0.08750000037252903,
+      "p95_ms": 0.15453200042247772,
+      "p99_ms": 0.4539069999009371
     }
   },
   "session": {
@@ -17,7 +17,7 @@
     "passed": 107,
     "failed": 0
   },
-  "total": 567,
+  "total": 613,
   "failed": 0,
   "scope": "Host unit tests, not HarmonyOS device or app compatibility tests"
 }

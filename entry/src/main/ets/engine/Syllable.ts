@@ -110,6 +110,26 @@ export function isViablePrefix(letters: string[]): boolean {
   return viableFrom(onset, word.slice(start));
 }
 
+// Circumflex implied by a tone mark (as GoTiengViet): ie/ye/uye need a coda (viết, chuyển) and ieu/yeu/uoi
+// no coda (tiểu, yếu, tuổi); uo needs a coda (muốn). Only unmarked e/o; ươ, ưo, uơ are left alone.
+// Returns a new array, so the typed letters stay intact for tone undo and English fallback.
+export function promoteCircumflex(letters: string[]): string[] {
+  const syllable = parseSyllable(letters);
+  if (syllable.start < 0) { return letters; }
+  const nucleus = syllable.nucleus;
+  const closed = syllable.coda.length > 0;
+  let at = -1;
+  if (closed && ['ie', 'ye', 'uye'].includes(nucleus)) { at = syllable.end - 1; }
+  else if (!closed && ['ieu', 'yeu'].includes(nucleus)) { at = syllable.start + 1; }
+  else if (closed ? nucleus === 'uo' : nucleus === 'uoi') { at = syllable.start + 1; }
+  // gi + e: the i belongs to the onset (giếng, giễu).
+  else if (syllable.onset === 'gi' && (closed ? nucleus === 'e' : nucleus === 'eu')) { at = syllable.start; }
+  if (at < 0) { return letters; }
+  const result = letters.slice();
+  result[at] = withCase(result[at], nucleus.charAt(at - syllable.start) === 'o' ? 'ô' : 'ê');
+  return result;
+}
+
 // A syllable closed by c, ch, p or t only takes sắc or nặng (tone 1 or 5), so tốt/học but never
 // tẽt: pỏt, texts -> tẽt/tét are English (port, texts).
 export function toneFits(letters: string[], tone: number): boolean {

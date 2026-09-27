@@ -1,7 +1,7 @@
 ﻿{
-    "artifact":  "C:\\Users\\OseasyVM\\Documents\\GitHub\\VietIME\\dist\\VietIME-1.0.8-release.hap",
-    "sha256":  "45CADBB3487A8A41C0B45B94B80227D82B811C428E6EC5B68F44224B6495A488",
-    "bytes":  1116504,
+    "artifact":  "C:\\Users\\OseasyVM\\Documents\\GitHub\\VietIME\\dist\\VietIME-1.0.9-release.hap",
+    "sha256":  "7A3F130F62FD7D450E323D4B4BF63E89838DD99E9398C777A3471482768F5E39",
+    "bytes":  1115409,
     "bundle":  "com.vietime.inputmethod",
     "targetAPI":  60100023,
     "compileSdk":  "6.1.1.125",

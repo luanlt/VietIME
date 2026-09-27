@@ -89,8 +89,30 @@ for (const [input, expected] of [['tieengs','tiếng'],['tieesng','tiếng'],['v
 for (const [input, expected] of [['viejet','việt'],['tiesneg','tiếng'],['dinhd','đinh']])
   check('free typing on ' + input, () => assert.equal(type(input), expected));
 check('english list applies with detection off', () => assert.equal(type('test', legacy()), 'test'));
-check('restore invalid off keeps composed text', () => assert.equal(type('quyefn', opt({ restoreInvalid: false })), 'quyèn'));
+// quyefn now composes to the valid quyền (auto circumflex), so an impossible vần (ea) shows the option.
+check('restore invalid off keeps composed text', () => {
+  assert.equal(type('beafn', opt({ restoreInvalid: false, englishDetection: false })), 'beàn');
+  assert.equal(type('beafn', opt({ englishDetection: false })), 'beafn');
+});
 check('old tone placement off: hoá khoẻ thuý', () => assert.equal(type('hoas khoer thuys', opt({ modernTone: false })), 'hoá khoẻ thuý'));
+// Auto circumflex: a tone on ie/ye/uye/uo + coda or ieu/yeu/uoi implies ê/ô (GoTiengViet promotion).
+for (const [input, expected] of [['vietj','việt'],['tiengs','tiếng'],['hienr','hiển'],['muons','muốn'],['muonj','muộn'],['cuocj','cuộc'],
+  ['tieur','tiểu'],['yeus','yếu'],['yeuf','yều'],['tuoir','tuổi'],['chuois','chuối'],['chuyenr','chuyển'],['quyenf','quyền'],['nguyenx','nguyễn'],
+  ['nghieng','nghieng'],['giengs','giếng'],['gieux','giễu'],['dduongf','đuồng'],['Vietj','Việt'],['VIETJ','VIỆT'],['muosn','muốn'],['tiesng','tiếng'],
+  ['vieetj','việt'],['duowngf','dường'],['nguowif','người'],['muaf','mùa'],['hoaf','hòa'],['tieng','tieng'],['viet','viet'],['muon','muon']])
+  check('auto circumflex ' + input, () => assert.equal(type(input), expected));
+for (const [input, expected] of [['vietj','việt'],['muons','muốn'],['tuoir','tuổi']])
+  check('auto circumflex, free typing off ' + input, () => assert.equal(type(input, opt({ freeTyping: false })), expected));
+// The circumflex follows the tone: removing the tone gives back the letters as typed.
+for (const [input, expected] of [['vietjz','viêt'],['vietjj','vietj'],['muonss','muons']])
+  check('auto circumflex follows tone undo ' + input, () => assert.equal(type(input), expected));
+for (const w of ['diets', 'quiets', 'tieng', 'viet', 'quiet', 'client', 'diet', 'lies', 'ties'])
+  check('auto circumflex keeps English ' + w, () => assert.equal(type(w + ' '), w + ' '));
+check('auto circumflex while typing and backspace', () => {
+  const e = new TelexEngine(); const seen = []; for (const k of 'muosn') seen.push(e.processKey(k).composition);
+  assert.deepEqual(seen, ['m', 'mu', 'muo', 'múo', 'muốn']);
+  assert.equal(e.processKey('Backspace').composition, 'múo');
+});
 const corpus = [
  ['Tooi ddang vieets tieengs Vieetj treen HarmonyOS.', 'Tôi đang viết tiếng Việt trên HarmonyOS.'],
  ['Truowngf DDaij hojc Bachs khoa Haf Nooij.', 'Trường Đại học Bách khoa Hà Nội.'],

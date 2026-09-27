@@ -62,3 +62,11 @@ Tái hiện theo hành vi quan sát được của UniKey Telex, không dùng m�
 - **Từ kết thúc bằng phím dấu gõ đôi** (`boss`, `less`, `miss`, `kiss`, `pass`, `loss`, `toss`, `mass`, `off`) nằm trong danh sách từ phiên bản 3 và giữ nguyên ở cuối từ; người dùng xóa được trong Settings. Danh sách đã lưu nhận các từ này đúng một lần.
 - Tùy chọn cũ "Gõ lặp phím dấu kiểu UniKey" đổi tên thành "Luôn bỏ dấu khi gõ lại phím dấu": BẬT thì phím dấu lặp ở cuối từ cũng bỏ dấu (`tests` → `tets`).
 - **Bỏ dấu giữa từ (bổ sung):** chữ gõ sau cặp phím dấu quyết định cách hiểu. **Nguyên âm** → phụ âm đôi tiếng Anh, trả lại phím đã gõ (`office`, `error`, `lesson`). **Phụ âm** → thói quen UniKey bỏ dấu giữa từ, giữ dạng đã bỏ dấu (`tesst` → `test`, `cosst` → `cost`, `texxt` → `text`). Hệ quả: gõ tự nhiên `offline` sẽ ra `ofline` như UniKey, trừ khi từ nằm trong danh sách (đã thêm `offline`, `offset`, `password`, `passport`).
+
+## Tự thêm dấu mũ theo dấu thanh (1.0.9)
+
+- **Nguồn:** `engine/promotion.c` của GoTiengViet. Khi âm tiết có dấu thanh, vần `ie`/`ye`/`uye` + phụ âm cuối, `ieu`/`yeu`/`uoi` không phụ âm cuối, `uo` + phụ âm cuối và `gi` + `e` (+ phụ âm cuối hoặc `u`) được hiển thị với `ê`/`ô`: `vietj` → việt, `muons` → muốn, `tuoir` → tuổi, `giengs` → giếng. Chỉ đổi `e`/`o` chưa có dấu phụ; `ươ`, `ưo`, `uơ` giữ nguyên.
+- **Không có dấu thanh thì không đổi** (`tieng`, `viet`, `quiet`), để từ tiếng Anh và thói quen gõ `ee` không bị ảnh hưởng.
+- **Tính khi hiển thị, không ghi vào chữ đã gõ** (`promoteCircumflex` trả mảng mới): bỏ dấu bằng phím dấu gõ đôi trả lại đúng phím đã gõ (`vietjj` → `vietj`). Riêng `z` chỉ xóa dấu thanh nên giữ dấu mũ (`vietjz` → `viêt`, như `vieetjz`).
+- Âm tiết đã thêm dấu mũ được dùng để xét hợp lệ, nên `vietj` ra việt kể cả khi tắt *Gõ dấu tự do*.
+- **Tiếng Anh:** so bản cũ/mới trên danh sách từ có `ie`/`uo`, chỉ `diets`, `quiets` bị đổi; hai từ này vào danh sách từ phiên bản 4. Gõ thiếu `w` ra dấu mũ (`dduongf` → đuồng, `nguoif` → nguồi), giống GoTiengViet.
