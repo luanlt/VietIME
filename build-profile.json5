@@ -23,13 +23,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\OseasyVM\\.ohos\\config\\default_VietIME_paOkf0mx_Mub5NpyQ8mPtwq2_xeIVMxzlOffK9RU_OM=.cer",
+          "certpath": "/Users/luanlt/.ohos/config/default_VietIME_dt1Q3_jdzgs7dIKgCRhpQIwbZfS5g-Wsu5Nv3amrpvo=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001BA352656A59DAC0FE5493BF878C0FBD5C95DDD4410AC21E18AE0C2C69F178F90664E399D89275ED",
-          "profile": "C:\\Users\\OseasyVM\\.ohos\\config\\default_VietIME_paOkf0mx_Mub5NpyQ8mPtwq2_xeIVMxzlOffK9RU_OM=.p7b",
+          "keyPassword": "0000001B8549C613765B8E45A005C26FE4BEDF9B596917C19BC1A3751CECF702B450E43D33098CE40C09EA",
+          "profile": "/Users/luanlt/.ohos/config/default_VietIME_dt1Q3_jdzgs7dIKgCRhpQIwbZfS5g-Wsu5Nv3amrpvo=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\OseasyVM\\.ohos\\config\\default_VietIME_paOkf0mx_Mub5NpyQ8mPtwq2_xeIVMxzlOffK9RU_OM=.p12",
-          "storePassword": "0000001BE2E9355729C469F9096F1A87CEA9EB88FA78F04BDDB5868FBED4A0C8AF37EF6CB0B4E1E855FD0A"
+          "storeFile": "/Users/luanlt/.ohos/config/default_VietIME_dt1Q3_jdzgs7dIKgCRhpQIwbZfS5g-Wsu5Nv3amrpvo=.p12",
+          "storePassword": "0000001BE4152310F9F92AB651BCDD0A91337BBCEA96BAE24A4BF4FA6959A74912DC28C03EA5FF4B50BDD0"
         }
       }
     ]

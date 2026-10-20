@@ -9,7 +9,7 @@ Dán vào **AppGallery Connect → ứng dụng VietIME → Thông tin ứng d�
 | Tên ứng dụng | VietIME |
 | Tên gói (bundle name) | `com.vietime.inputmethod` |
 | Phiên bản | 1.0.9 (versionCode 1001009) |
-| Thiết bị | PC / 2in1 (HarmonyOS PC); cũng khai báo tablet, phone |
+| Thiết bị | PC / 2in1 (HarmonyOS PC) |
 | HarmonyOS tối thiểu | 6.1.0 (API 23) |
 | Danh mục | Công cụ (Tools) → Bàn phím / Nhập liệu |
 | Giá | Miễn phí, không mua trong ứng dụng, không quảng cáo |
@@ -18,7 +18,7 @@ Dán vào **AppGallery Connect → ứng dụng VietIME → Thông tin ứng d�
 | Nhà phát triển | Lại Thành Luân |
 | Email hỗ trợ | v.luanlt@gmail.com |
 | Điện thoại | 0961722886 |
-| Chính sách quyền riêng tư | *(URL công khai sau khi đăng `privacy-policy.html`)* |
+| Chính sách quyền riêng tư | https://github.com/luanlt/VietIME/blob/main/PRIVACY.md |
 | Quyền hệ thống | Không có |
 
 ## Mô tả ngắn
