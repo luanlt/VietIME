@@ -7,6 +7,9 @@ struct SoftKeyboard {
   @StorageLink('imeMode') mode: string = 'VI';
   @StorageLink('keyLabelSize') labelSize: number = 20;
   @StorageLink('imeState') state: string = 'Đang khởi động';
+  // The system shows this panel at 1px whenever an editor gains focus, even when VietIME hid it.
+  // Painted only while VietIME itself shows the keyboard; otherwise it was a light strip at the bottom.
+  @StorageLink('imePanel') panelState: string = '';
   private rows: string[] = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
 
   build() {
@@ -34,5 +37,6 @@ struct SoftKeyboard {
         Button('↵').onClick(() => imeRuntime.softKey('Enter')).layoutWeight(1)
       }.width('100%').layoutWeight(1)
     }.padding(12).width('100%').height('100%').backgroundColor('#E5ECE7')
+    .visibility(this.panelState === 'Đang hiện' ? Visibility.Visible : Visibility.Hidden)
   }
 }

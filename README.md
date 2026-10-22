@@ -6,7 +6,7 @@
 
 **Bộ gõ tiếng Việt Telex cho HarmonyOS PC — gõ nhanh như UniKey, chạy hoàn toàn ngoại tuyến.**
 
-[![Version](https://img.shields.io/badge/version-1.0.9-2563eb)](AppScope/app.json5)
+[![Version](https://img.shields.io/badge/version-1.1.0-2563eb)](AppScope/app.json5)
 [![HarmonyOS](https://img.shields.io/badge/HarmonyOS-6.1.0%2B%20(API%2023)-cf0a2c)](build-profile.json5)
 [![ArkTS](https://img.shields.io/badge/ArkTS-ArkUI-7c3aed)](entry/src/main/ets)
 [![Tests](https://img.shields.io/badge/tests-613%20passed-16a34a)](docs/test-results.json)
@@ -168,6 +168,11 @@ Thiết kế chi tiết: [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.
 | [PRIVACY.md](PRIVACY.md) | Chính sách quyền riêng tư (Tiếng Việt / English) |
 
 ## 📝 Nhật ký thay đổi
+
+### 1.1.0 — 22/10/2026
+
+- **Bỏ đường sáng ở đáy màn hình** khi con trỏ nằm trong ô nhập: hệ thống luôn hiện bảng bàn phím ảo (cao 1px) khi có ô nhập; nay bảng này trong suốt khi bàn phím ảo không được dùng.
+- **Sửa lỗi mất dấu trong WPS Office** (`gõ` → `go`, `vẫn` → `van`): WPS thường ghi chữ mới trước khi xóa chữ cũ khi sửa dấu; nay trong WPS bộ gõ chờ 40 ms sau mỗi lần xóa rồi mới ghi. Chữ vẫn ghi thẳng, có dấu ngay khi gõ. Các ứng dụng khác không đổi.
 
 ### 1.0.9 — 27/09/2026
 

@@ -9,7 +9,7 @@ import { SettingsRepository } from '../settings/SettingsRepository';
 import { SettingsModel } from '../settings/SettingsModel';
 import { InputMode } from '../engine/VietnameseInputEngine';
 import { CompositionSession } from './CompositionSession';
-import { HarmonyEditor } from './HarmonyEditor';
+import { EditorQuirks, HarmonyEditor } from './HarmonyEditor';
 import { ShiftTapTracker, ShortcutTracker } from './ShortcutTracker';
 import { AppModePolicy, pushRecent } from './AppModePolicy';
 import { AppHistory } from '../settings/AppHistory';
@@ -65,7 +65,9 @@ export class ImeRuntime {
     try {
       this.config = this.repository?.load() ?? this.config;
       this.attribute = client.getEditorAttributeSync();
-      this.session.attach(new HarmonyEditor(client), this.preEdit(this.attribute), this.shouldBypass());
+      const editor = new HarmonyEditor(client, this.editorQuirks(this.attribute));
+      editor.onDeferredError = (error: Error): void => { this.fail(error as BusinessError); };
+      this.session.attach(editor, this.preEdit(this.attribute), this.shouldBypass());
       this.session.configure(this.config.engineOptions()); this.session.setDirectFallback(this.config.directFallback || this.config.uniKeyStyle);
       this.applyTyping();
       this.configureAppPolicy(); this.applyAppMode(false);
@@ -312,6 +314,14 @@ export class ImeRuntime {
   private preEdit(attr: inputMethodEngine.EditorAttribute): boolean {
     return attr.isTextPreviewSupported && !this.config.uniKeyStyle;
   }
+  // WPS (2026-10-22 device tests): a direct-mode insert sent right after a delete is often
+  // applied before it, so the delete eats the corrected letters (gõ -> go); a 40 ms pause after
+  // each delete fixes it, even at 50 ms per key. Its caret index always reads 0.
+  private editorQuirks(attr: inputMethodEngine.EditorAttribute): EditorQuirks {
+    const quirks = new EditorQuirks();
+    if (attr.bundleName === 'cn.wps.office.hap') { quirks.settleMs = 40; quirks.blindCaret = true; }
+    return quirks;
+  }
   private shouldBypass(): boolean {
     const attr = this.attribute;
     if (!attr) { this.sensitive = true; return true; }
@@ -439,6 +449,10 @@ export class ImeRuntime {
         await panel.resize(screen.width, Math.round(this.config.keyboardHeight * screen.densityPixels));
         if (!this.alive) { return; }
         await panel.show();
+      } else if (this.client) {
+        // While an editor is attached the system shows this panel anyway (at 1px, as in 1.0.9):
+        // keep it there instead of fighting it; SoftKeyboard leaves it unpainted.
+        await panel.resize(display.getDefaultDisplaySync().width, 1);
       } else { await panel.hide(); }
       AppStorage.setOrCreate('imePanel', show ? 'Đang hiện' : 'Đang ẩn');
     }).catch((error: BusinessError): void => { this.fail(error); });

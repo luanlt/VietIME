@@ -8,7 +8,7 @@ Dán vào **AppGallery Connect → ứng dụng VietIME → Thông tin ứng d�
 |---|---|
 | Tên ứng dụng | VietIME |
 | Tên gói (bundle name) | `com.vietime.inputmethod` |
-| Phiên bản | 1.0.9 (versionCode 1001009) |
+| Phiên bản | 1.1.0 (versionCode 1001100) |
 | Thiết bị | PC / 2in1 (HarmonyOS PC) |
 | HarmonyOS tối thiểu | 6.1.0 (API 23) |
 | Danh mục | Công cụ (Tools) → Bàn phím / Nhập liệu |
@@ -56,6 +56,11 @@ VietIME is a Vietnamese Telex input method for HarmonyOS PC and physical keyboar
 ## Từ khóa
 
 bộ gõ tiếng Việt, telex, unikey, bàn phím tiếng Việt, gõ dấu, Vietnamese keyboard, Vietnamese input, HarmonyOS PC
+
+## Có gì mới trong 1.1.0
+
+- Sửa lỗi xuất hiện một đường sáng ở đáy màn hình khi con trỏ ở ô nhập liệu.
+- Sửa lỗi mất dấu tiếng Việt khi gõ trong WPS Office.
 
 ## Có gì mới trong 1.0.9
 
